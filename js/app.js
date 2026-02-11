@@ -64,12 +64,17 @@ function getParam(key) {
 
 function renderMarkdown(md) {
   if (!md) return "";
-  function censorDollarText(str) {
+  function censorDollarText(str, currentUser, creatorUser) {
     if (!str) return "";
+    if (currentUser === creatorUser) return str; // OG sees everything
     return str.replace(/\$.*?\$/g, "█████");
   }
-  
-  md = censorDollarText(md);
+
+  // Get current logged-in user
+  var currentUser = window.Auth && window.Auth.isLoggedIn() ? window.Auth.getUser() : null;
+
+  // Apply censorship, keeping OG able to see original
+  md = censorDollarText(md, currentUser, creatorUser);
 
   var html = md
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
