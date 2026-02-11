@@ -1128,3 +1128,37 @@ textarea.form-input {
 .mb-2 { margin-bottom: 8px; }
 .mb-4 { margin-bottom: 16px; }
 .hidden { display: none !important; }
+
+/* Comments Section */
+.comments-section {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.comments-list {
+  margin-top: 8px;
+}
+
+.comment-item {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+.comment-item p {
+  margin: 4px 0 0 0;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.comment-form textarea {
+  resize: vertical;
+}
+
+.comment-form button {
+  display: inline-block;
+}
+
