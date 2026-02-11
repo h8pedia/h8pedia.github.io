@@ -63,35 +63,7 @@ function getParam(key) {
 }
 
 function renderMarkdown(md) {
-  let articleId = getParam("id"); // get ?id= from URL
-  let creatorUser = null;
-  
-  if (articleId) {
-    const article = await db.get(`/articles/${articleId}`);
-    if (article) {
-      creatorUser = article.author; // this is the "creator user"
-    } else {
-      showToast("Article not found", "error");
-    }
-  }
-  
-  document.getElementById("articleBody").innerHTML = renderMarkdown(article.content, creatorUser);
-  
-  var currentUser = window.Auth && window.Auth.isLoggedIn() ? window.Auth.getUser() : null;
-  
   if (!md) return "";
-  function censorDollarText(str, currentUser, creatorUser) {
-    if (!str) return "";
-    if (currentUser === creatorUser) return str; // OG sees everything
-    return str.replace(/\$.*?\$/g, "█████");
-  }
-
-  // Get current logged-in user
-
-
-  // Apply censorship, keeping OG able to see original
-  md = censorDollarText(md, currentUser, creatorUser);
-
   var html = md
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/^######\s(.+)$/gm, '<h6>$1</h6>')
@@ -157,15 +129,12 @@ function initNav() {
   if (window.Auth && window.Auth.isLoggedIn()) {
     var user = window.Auth.getUser();
     var initial = user.charAt(0).toUpperCase();
-
-    navAuth.innerHTML = `
-      <div class="nav-auth">
-        <a href="profile.html?user=${encodeURIComponent(user)}" class="nav-user" aria-label="Your profile">
-          <span class="nav-avatar">${esc(initial)}</span>${esc(user)}
-        </a>
-        <a href="#" class="nav-link" onclick="Auth.logout(); return false;">Logout</a>
-      </div>
-    `;
+    navAuth.innerHTML =
+      '<a href="profile.html?user=' + encodeURIComponent(user) + '" class="nav-user" aria-label="Your profile">' +
+        '<span class="nav-avatar">' + esc(initial) + '</span>' +
+        esc(user) +
+      '</a>' +
+      '<a href="#" class="nav-link" onclick="Auth.logout(); return false;">Logout</a>';
 
     window.Auth.isModerator().then(function(isMod) {
       if (isMod) {
@@ -176,14 +145,12 @@ function initNav() {
         navAuth.prepend(modLink);
       }
     });
-
   } else {
     navAuth.innerHTML =
       '<a href="login.html" class="nav-link">Log in</a>' +
       '<a href="signup.html" class="nav-link active">Sign up</a>';
   }
 }
-
 
 document.addEventListener("DOMContentLoaded", function() {
   var btn = document.getElementById("mobileMenuBtn");
