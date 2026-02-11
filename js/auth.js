@@ -39,8 +39,8 @@ var Auth = (function() {
     if (!username || username.length < 3) {
       return { ok: false, error: "Username must be at least 3 characters." };
     }
-    if (!email.endsWith("@hackley.org")) {
-      return { ok: false, error: "You must use a Hackley email (@hackley.org)." };
+    if (!email.endsWith("@hackleyschool.org")) {
+      return { ok: false, error: "You must use a Hackley email (@hackleyschool.org)." };
     }
     if (!password || password.length < 6) {
       return { ok: false, error: "Password must be at least 6 characters." };
