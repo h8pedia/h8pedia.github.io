@@ -142,7 +142,7 @@
           container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">No articles yet.</p>';
           return;
         }
-
+        
         container.innerHTML = arr.slice(0, 15).map(a => {
           const excerpt = stripMarkdown(a.content || "").slice(0, 160);
           const date = a.updatedAt || a.createdAt;
@@ -152,9 +152,12 @@
               <div class="article-card-excerpt">${esc(excerpt)}...</div>
               <div class="article-card-meta">
                 ${a.category ? '<span class="chip" style="padding:2px 8px; font-size:11px;">' + esc(a.category) + '</span> &middot; ' : ''}
-                Edited by ${esc(a.lastEditor || a.author)} &middot; ${formatDate(date)}
+                By ${esc(a.author)} &middot; ${formatDate(date)}
               </div>
             </a>
+          `;
+        }).join("");
+
           `;
         }).join("");
       } catch (err) {
