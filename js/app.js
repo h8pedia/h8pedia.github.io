@@ -63,6 +63,20 @@ function getParam(key) {
 }
 
 function renderMarkdown(md) {
+  let articleId = getParam("id"); // get ?id= from URL
+  let creatorUser = null;
+  
+  if (articleId) {
+    const article = await db.get(`/articles/${articleId}`);
+    if (article) {
+      creatorUser = article.author; // this is the "creator user"
+    } else {
+      showToast("Article not found", "error");
+    }
+  }
+  
+  document.getElementById("articleBody").innerHTML = renderMarkdown(article.content, creatorUser);
+  
   var currentUser = window.Auth && window.Auth.isLoggedIn() ? window.Auth.getUser() : null;
   
   if (!md) return "";
