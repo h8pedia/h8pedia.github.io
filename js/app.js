@@ -63,6 +63,8 @@ function getParam(key) {
 }
 
 function renderMarkdown(md) {
+  var currentUser = window.Auth && window.Auth.isLoggedIn() ? window.Auth.getUser() : null;
+  
   if (!md) return "";
   function censorDollarText(str, currentUser, creatorUser) {
     if (!str) return "";
@@ -71,7 +73,7 @@ function renderMarkdown(md) {
   }
 
   // Get current logged-in user
-  var currentUser = window.Auth && window.Auth.isLoggedIn() ? window.Auth.getUser() : null;
+
 
   // Apply censorship, keeping OG able to see original
   md = censorDollarText(md, currentUser, creatorUser);
