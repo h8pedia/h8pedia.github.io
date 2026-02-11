@@ -82,7 +82,6 @@ var Auth = (function() {
       verified: true,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
-      lastIP: ip || "unknown",
       fingerprint: fp,
       bio: "",
       articlesCreated: 0,
