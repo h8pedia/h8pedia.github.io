@@ -19,12 +19,17 @@ function stripMarkdown(md) {
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\$([^$\n]+)\$/g, function(match, p1) {
-      if (window.currentArticle && Auth.isLoggedIn() && Auth.getUser() === window.currentArticle.author) {
+      if (
+        window.currentArticle &&
+        Auth.isLoggedIn() &&
+        Auth.getUser() === window.currentArticle.author
+      ) {
         return '<span class="redacted-author">' + esc(p1) + '</span>';
       } else {
         return '████████';
       }
     })
+
     .replace(/`([^`]+)`/g, "$1")
     .replace(/>\s?/g, "")
     .replace(/---/g, "")
