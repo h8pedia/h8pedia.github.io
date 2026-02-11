@@ -148,8 +148,15 @@ img {
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
+
+.nav-left, .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 
 .nav-link {
   padding: 6px 14px;
