@@ -140,8 +140,13 @@
         }
 
         // Check permissions: author, editor, or moderator
-        const userRoles = userData.roles || [];
-        const canEdit = article.author === Auth.getUser() || userRoles.includes("editor") || userRoles.includes("moderator");
+        const role = userData.role || "user";
+        
+        const canEdit =
+          article.author === Auth.getUser() ||
+          role === "editor" ||
+          role === "moderator";
+
 
         if (!canEdit) {
           document.getElementById("editorForm").classList.add("hidden");
