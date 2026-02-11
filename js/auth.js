@@ -88,7 +88,7 @@ var Auth = (function() {
       email: email,
       password: hashedPw,
       role: "user",
-      verified: false,
+      verified: true, // User is automatically verified
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
       lastIP: ip || "unknown",
@@ -101,17 +101,12 @@ var Auth = (function() {
     await window.db.set("/users/" + username, userData);
     await window.BanSystem.registerIdentity(username);
 
-    var verifyCode = Math.random().toString(36).slice(2, 8).toUpperCase();
-    await window.db.set("/verification/" + username, {
-      code: verifyCode,
-      email: email,
-      createdAt: new Date().toISOString()
-    });
+    // Removed verification code generation logic
 
     localStorage.setItem(SESSION_KEY, username);
     localStorage.setItem(TOKEN_KEY, token);
 
-    return { ok: true, username: username, verifyCode: verifyCode };
+    return { ok: true, username: username };
   }
 
   async function login(username, password) {
@@ -158,22 +153,6 @@ var Auth = (function() {
     window.location.href = "index.html";
   }
 
-  async function verifyEmail(code) {
-    var username = getUser();
-    if (!username) return { ok: false, error: "Not logged in." };
-
-    var record = await window.db.get("/verification/" + username);
-    if (!record) return { ok: false, error: "No verification pending." };
-
-    if (record.code !== code.toUpperCase()) {
-      return { ok: false, error: "Invalid verification code." };
-    }
-
-    await window.db.update("/users/" + username, { verified: true });
-    await window.db.delete("/verification/" + username);
-    return { ok: true };
-  }
-
   async function getUserData(username) {
     username = username || getUser();
     if (!username) return null;
@@ -194,7 +173,7 @@ var Auth = (function() {
     signup: signup,
     login: login,
     logout: logout,
-    verifyEmail: verifyEmail,
+    // verifyEmail removed from exports
     getUserData: getUserData,
     isModerator: isModerator,
     hashPassword: hashPassword
