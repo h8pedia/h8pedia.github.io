@@ -50,195 +50,136 @@
   <script>
     let currentArticle = null;
     let articleId = null;
-
+  
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
       await BanSystem.enforceBan();
-
+  
       articleId = getParam("id");
       if (!articleId) {
-        document.getElementById("articleContainer").innerHTML = '<p class="text-muted text-center" style="padding:32px;">No article specified.</p>';
+        document.getElementById("articleContainer").innerHTML =
+          '<p class="text-muted text-center" style="padding:32px;">No article specified.</p>';
         return;
       }
+  
       loadArticle(articleId);
     });
-
+  
     async function loadArticle(id) {
       const container = document.getElementById("articleContainer");
+  
       try {
         const article = await db.get(`/articles/${id}`);
+  
         if (!article || article.deleted) {
-          container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">Article not found.</p>';
+          container.innerHTML =
+            '<p class="text-muted text-center" style="padding:32px;">Article not found.</p>';
           document.title = "Not Found — h8pedia";
           return;
         }
-
+  
+        // 🔥 IMPORTANT FIX
         currentArticle = article;
+        window.currentArticle = article;
+  
         document.title = article.title + " — h8pedia";
-
+  
         // Track view
         const views = (article.views || 0) + 1;
         db.update(`/articles/${id}`, { views });
-
-        // Render markdown
+  
+        // Render markdown (redaction logic runs inside renderMarkdown)
         let bodyHtml = renderMarkdown(article.content || "");
+  
         const tocResult = buildTOC(bodyHtml);
         let tocHtml = "";
         if (tocResult) {
           tocHtml = tocResult.toc;
           bodyHtml = tocResult.html;
         }
-
-        // Check bookmark
+  
         const user = Auth.getUser();
         let isBookmarked = false;
+  
         if (user) {
           const bm = await db.get(`/users/${user}/bookmarks/${id}`);
           isBookmarked = !!bm;
         }
-
-        // Actions
+  
         const canEdit = Auth.isLoggedIn();
         const isMod = await Auth.isModerator();
-
+  
         container.innerHTML = `
           <div class="article-header">
             <h1 class="article-title">${esc(article.title)}</h1>
             <div class="article-meta">
-              <span>Created by <a href="profile.html?user=${encodeURIComponent(article.author)}">${esc(article.author)}</a></span>
+              <span>Created by 
+                <a href="profile.html?user=${encodeURIComponent(article.author)}">
+                  ${esc(article.author)}
+                </a>
+              </span>
               <span class="separator">|</span>
               <span>${formatDate(article.createdAt)}</span>
-              ${article.lastEditor ? `<span class="separator">|</span><span>Last edited by <a href="profile.html?user=${encodeURIComponent(article.lastEditor)}">${esc(article.lastEditor)}</a></span>` : ''}
-              ${article.category ? `<span class="separator">|</span><a href="categories.html?cat=${encodeURIComponent(article.category)}" class="chip" style="padding:2px 8px;font-size:11px;">${esc(article.category)}</a>` : ''}
+              ${article.lastEditor ? `
+                <span class="separator">|</span>
+                <span>Last edited by 
+                  <a href="profile.html?user=${encodeURIComponent(article.lastEditor)}">
+                    ${esc(article.lastEditor)}
+                  </a>
+                </span>` : ''}
+              ${article.category ? `
+                <span class="separator">|</span>
+                <a href="categories.html?cat=${encodeURIComponent(article.category)}"
+                   class="chip"
+                   style="padding:2px 8px;font-size:11px;">
+                  ${esc(article.category)}
+                </a>` : ''}
               <span class="separator">|</span>
               <span>${views} views</span>
             </div>
           </div>
-
+  
           <div class="article-actions">
-            ${canEdit ? `<a href="editor.html?id=${encodeURIComponent(id)}" class="btn btn-secondary btn-sm">Edit Article</a>` : ''}
-            ${user ? `<button class="btn btn-ghost btn-sm" onclick="toggleBookmark('${id}')" id="bookmarkBtn">${isBookmarked ? 'Bookmarked' : 'Bookmark'}</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="toggleHistory()">History</button>
-            ${isMod ? `<button class="btn btn-danger btn-sm" onclick="deleteArticle('${id}')">Delete</button>` : ''}
+            ${canEdit ? `
+              <a href="editor.html?id=${encodeURIComponent(id)}"
+                 class="btn btn-secondary btn-sm">
+                Edit Article
+              </a>` : ''}
+            ${user ? `
+              <button class="btn btn-ghost btn-sm"
+                      onclick="toggleBookmark('${id}')"
+                      id="bookmarkBtn">
+                ${isBookmarked ? 'Bookmarked' : 'Bookmark'}
+              </button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="toggleHistory()">
+              History
+            </button>
+            ${isMod ? `
+              <button class="btn btn-danger btn-sm"
+                      onclick="deleteArticle('${id}')">
+                Delete
+              </button>` : ''}
           </div>
-
+  
           ${tocHtml}
           <div class="article-body">${bodyHtml}</div>
         `;
-
+  
       } catch (err) {
-        container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">Failed to load article.</p>';
+        container.innerHTML =
+          '<p class="text-muted text-center" style="padding:32px;">Failed to load article.</p>';
       }
     }
-
-    async function toggleBookmark(id) {
-      const user = Auth.getUser();
-      if (!user) return;
-      const existing = await db.get(`/users/${user}/bookmarks/${id}`);
-      if (existing) {
-        await db.delete(`/users/${user}/bookmarks/${id}`);
-        document.getElementById("bookmarkBtn").textContent = "Bookmark";
-        showToast("Bookmark removed", "success");
-      } else {
-        await db.set(`/users/${user}/bookmarks/${id}`, { savedAt: new Date().toISOString() });
-        document.getElementById("bookmarkBtn").textContent = "Bookmarked";
-        showToast("Article bookmarked!", "success");
-      }
-    }
-
-    async function toggleHistory() {
-      const section = document.getElementById("historySection");
-      if (!section.classList.contains("hidden")) {
-        section.classList.add("hidden");
-        return;
-      }
-      section.classList.remove("hidden");
-      const list = document.getElementById("historyList");
-      list.innerHTML = '<div class="loading-overlay"><span class="spinner"></span></div>';
-
-      const history = await db.get(`/articles/${articleId}/history`);
-      if (!history) {
-        list.innerHTML = '<p class="text-muted">No edit history yet.</p>';
-        return;
-      }
-
-      const arr = Object.entries(history)
-        .map(([hid, h]) => ({ id: hid, ...h }))
-        .sort((a, b) => (b.editedAt || "").localeCompare(a.editedAt || ""));
-
-      const isMod = await Auth.isModerator();
-
-      list.innerHTML = arr.map(h => `
-        <div class="history-item">
-          <span class="history-dot"></span>
-          <div>
-            <div>
-              <a href="profile.html?user=${encodeURIComponent(h.editor)}">${esc(h.editor)}</a>
-              edited this article
-              ${h.summary ? ` &mdash; <em>${esc(h.summary)}</em>` : ''}
-            </div>
-            <div class="history-time">${formatDateTime(h.editedAt)}</div>
-            ${isMod ? `<button class="btn btn-ghost btn-sm mt-2" onclick="revertTo('${h.id}')">Revert to this version</button>` : ''}
-          </div>
-        </div>
-      `).join("");
-    }
-
-    async function revertTo(historyId) {
-      if (!confirm("Are you sure you want to revert to this version?")) return;
-      const historyEntry = await db.get(`/articles/${articleId}/history/${historyId}`);
-      if (!historyEntry) return alert("History entry not found.");
-
-      // Save current as history first
-      const current = await db.get(`/articles/${articleId}`);
-      const user = Auth.getUser();
-      await db.push(`/articles/${articleId}/history`, {
-        editor: user,
-        content: current.content,
-        title: current.title,
-        summary: "Before revert",
-        editedAt: new Date().toISOString(),
-      });
-
-      // Revert
-      await db.update(`/articles/${articleId}`, {
-        content: historyEntry.content,
-        title: historyEntry.title || current.title,
-        lastEditor: user,
-        updatedAt: new Date().toISOString(),
-      });
-
-      // Log activity
-      await db.push("/activity", {
-        type: "revert",
-        articleId,
-        user,
-        revertedTo: historyId,
-        timestamp: new Date().toISOString(),
-      });
-
-      showToast("Article reverted!", "success");
-      loadArticle(articleId);
-    }
-
-    async function deleteArticle(id) {
-      if (!confirm("Are you sure you want to delete this article?")) return;
-      await db.update(`/articles/${id}`, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: Auth.getUser() });
-      await db.push("/activity", {
-        type: "delete",
-        articleId: id,
-        user: Auth.getUser(),
-        timestamp: new Date().toISOString(),
-      });
-      showToast("Article deleted", "success");
-      setTimeout(() => location.href = "index.html", 1000);
-    }
-
+  
     function doSearch() {
       const q = document.getElementById("headerSearch").value.trim();
       if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
     }
-    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  
+    document.getElementById("headerSearch")
+      ?.addEventListener("keydown", e => {
+        if (e.key === "Enter") doSearch();
+      });
   </script>
 </body>
 </html>
