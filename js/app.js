@@ -64,6 +64,13 @@ function getParam(key) {
 
 function renderMarkdown(md) {
   if (!md) return "";
+  function censorDollarText(str) {
+    if (!str) return "";
+    return str.replace(/\$.*?\$/g, "█████");
+  }
+  
+  md = censorDollarText(md);
+
   var html = md
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/^######\s(.+)$/gm, '<h6>$1</h6>')
