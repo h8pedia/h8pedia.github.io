@@ -18,6 +18,7 @@ function stripMarkdown(md) {
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\$([^$\n]+)\$/g, '<span class="redacted">████████</span>')
     .replace(/`([^`]+)`/g, "$1")
     .replace(/>\s?/g, "")
     .replace(/---/g, "")
