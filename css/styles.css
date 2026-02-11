@@ -1112,6 +1112,13 @@ textarea.form-input {
   border-width: 0;
 }
 
+.nav-auth {
+  display: flex;
+  align-items: center;   /* vertically center items */
+  gap: 12px;             /* space between profile and logout */
+}
+
+
 .text-center { text-align: center; }
 .text-muted { color: var(--text-muted); }
 .mt-2 { margin-top: 8px; }
