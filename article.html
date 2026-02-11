@@ -128,7 +128,23 @@
 
           ${tocHtml}
           <div class="article-body">${bodyHtml}</div>
+
+          <!-- Comments Section -->
+          <div class="comments-section content-card mt-6">
+            <h2 style="font-family:var(--font-serif); font-size:20px; margin-bottom:16px;">Comments</h2>
+            <div id="commentsList" class="comments-list">
+              <div class="loading-overlay"><span class="spinner"></span> Loading comments...</div>
+            </div>
+            ${Auth.isLoggedIn() ? `
+              <div class="comment-form" style="margin-top:16px;">
+                <textarea id="commentInput" rows="3" placeholder="Add a comment..." style="width:100%; padding:8px; border-radius:4px; border:1px solid var(--border);"></textarea>
+                <button class="btn btn-primary btn-sm mt-2" onclick="postComment('${id}')">Post Comment</button>
+              </div>
+            ` : `<p class="text-muted mt-2">Log in to post comments.</p>`}
+          </div>
         `;
+
+        loadComments(id);
 
       } catch (err) {
         container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">Failed to load article.</p>';
@@ -150,6 +166,55 @@
       }
     }
 
+    // -----------------------
+    // Comments functions
+    // -----------------------
+    async function loadComments(articleId) {
+      const list = document.getElementById("commentsList");
+      list.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Loading comments...</div>';
+
+      const commentsData = await db.get(`/articles/${articleId}/comments`);
+      if (!commentsData) {
+        list.innerHTML = '<p class="text-muted">No comments yet.</p>';
+        return;
+      }
+
+      const comments = Object.entries(commentsData)
+        .map(([cid, c]) => ({ id: cid, ...c }))
+        .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+
+      list.innerHTML = comments.map(c => `
+        <div class="comment-item">
+          <strong>${esc(c.author)}</strong> <span class="comment-time">${formatDateTime(c.createdAt)}</span>
+          <p>${esc(c.text)}</p>
+          ${Auth.isModerator() || Auth.getUser() === c.author ? `<button class="btn btn-ghost btn-sm mt-1" onclick="deleteComment('${articleId}','${c.id}')">Delete</button>` : ''}
+        </div>
+      `).join("");
+    }
+
+    async function postComment(articleId) {
+      const input = document.getElementById("commentInput");
+      const text = input.value.trim();
+      if (!text) return;
+      const user = Auth.getUser();
+      const id = await db.push(`/articles/${articleId}/comments`, {
+        text,
+        author: user,
+        createdAt: new Date().toISOString()
+      });
+      input.value = "";
+      loadComments(articleId);
+    }
+
+    async function deleteComment(articleId, commentId) {
+      if (!confirm("Delete this comment?")) return;
+      await db.delete(`/articles/${articleId}/comments/${commentId}`);
+      loadComments(articleId);
+    }
+
+    // -----------------------
+    // History & Delete
+    // -----------------------
     async function toggleHistory() {
       const section = document.getElementById("historySection");
       if (!section.classList.contains("hidden")) {
