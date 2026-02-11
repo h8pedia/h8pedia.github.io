@@ -1,8 +1,8 @@
 /* eslint-disable */
 // @ts-nocheck
 // =========================
-// BAN SYSTEM — Multi-layer persistent ban enforcement
-// Uses: cookies, localStorage, sessionStorage, IndexedDB, IP fingerprinting
+// BAN SYSTEM — Multi-layer persistent ban enforcement (IP Tracking Removed)
+// Uses: cookies, localStorage, sessionStorage, IndexedDB, Browser Fingerprinting
 // Depends on: firebase-api.js (db)
 // =========================
 var BanSystem = (function() {
@@ -92,15 +92,8 @@ var BanSystem = (function() {
     return "fp_" + Math.abs(hash).toString(36);
   }
 
-  async function getIPAddress() {
-    try {
-      var res = await fetch("https://api.ipify.org?format=json");
-      var data = await res.json();
-      return data.ip || null;
-    } catch(e) {
-      return null;
-    }
-  }
+  // IP fetching function is no longer needed for ban logic
+  // async function getIPAddress() { ... }
 
   async function writeBanLocally(reason) {
     var banData = JSON.stringify({
@@ -145,22 +138,23 @@ var BanSystem = (function() {
   }
 
   async function banUser(username, reason) {
-    var ip = await getIPAddress();
+    // REMOVED IP fetching to prevent school network bans
     var fp = getBrowserFingerprint();
     var banRecord = {
       username: username,
       reason: reason || "Banned by moderator",
       bannedAt: new Date().toISOString(),
-      ip: ip || "unknown",
+      // ip: ip || "unknown", // REMOVED
       fingerprint: fp
     };
 
     await window.db.set("/bans/users/" + username, banRecord);
 
-    if (ip) {
-      var safeIp = ip.replace(/\./g, "_");
-      await window.db.set("/bans/ips/" + safeIp, banRecord);
-    }
+    // REMOVED IP ban storage logic
+    // if (ip) {
+    //   var safeIp = ip.replace(/\./g, "_");
+    //   await window.db.set("/bans/ips/" + safeIp, banRecord);
+    // }
 
     await window.db.set("/bans/fingerprints/" + fp, banRecord);
     await window.db.update("/users/" + username, { banned: true, banReason: reason || "Banned by moderator" });
@@ -176,14 +170,15 @@ var BanSystem = (function() {
       if (userData && userData.banned) return { banned: true, reason: userData.banReason || "Banned" };
     }
 
-    try {
-      var ip = await getIPAddress();
-      if (ip) {
-        var safeIp = ip.replace(/\./g, "_");
-        var ipBan = await window.db.get("/bans/ips/" + safeIp);
-        if (ipBan) return ipBan;
-      }
-    } catch(e) {}
+    // REMOVED IP ban checking logic
+    // try {
+    //   var ip = await getIPAddress();
+    //   if (ip) {
+    //     var safeIp = ip.replace(/\./g, "_");
+    //     var ipBan = await window.db.get("/bans/ips/" + safeIp);
+    //     if (ipBan) return ipBan;
+    //   }
+    // } catch(e) {}
 
     var fp = getBrowserFingerprint();
     var fpBan = await window.db.get("/bans/fingerprints/" + fp);
@@ -245,21 +240,22 @@ var BanSystem = (function() {
   }
 
   async function registerIdentity(username) {
-    var ip = await getIPAddress();
+    // REMOVED IP fetching
     var fp = getBrowserFingerprint();
 
     await window.db.update("/users/" + username, {
-      lastIP: ip || "unknown",
+      // lastIP: ip || "unknown", // REMOVED
       fingerprint: fp,
       lastLogin: new Date().toISOString()
     });
 
-    if (ip) {
-      var safeIp = ip.replace(/\./g, "_");
-      var existing = await window.db.get("/identity/ips/" + safeIp) || {};
-      existing[username] = true;
-      await window.db.set("/identity/ips/" + safeIp, existing);
-    }
+    // REMOVED IP to username mapping
+    // if (ip) {
+    //   var safeIp = ip.replace(/\./g, "_");
+    //   var existing = await window.db.get("/identity/ips/" + safeIp) || {};
+    //   existing[username] = true;
+    //   await window.db.set("/identity/ips/" + safeIp, existing);
+    // }
 
     var existingFp = await window.db.get("/identity/fingerprints/" + fp) || {};
     existingFp[username] = true;
@@ -274,7 +270,7 @@ var BanSystem = (function() {
     isLocallyBanned: isLocallyBanned,
     isServerBanned: isServerBanned,
     registerIdentity: registerIdentity,
-    getIPAddress: getIPAddress,
+    // getIPAddress: getIPAddress, // Exposing this is no longer necessary
     getBrowserFingerprint: getBrowserFingerprint,
     escapeHTML: escapeHTML
   };
