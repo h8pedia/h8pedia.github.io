@@ -188,9 +188,8 @@
       if (!catArr.length) return;
 
       container.innerHTML = catArr.slice(0, 10).map(c =>
-        <span class="chip" onclick="location.href='categories.html'">All Categories</span>
+        `<a href="categories.html?cat=${encodeURIComponent(c)}" class="chip">${esc(c)}</a>`
       ).join("") + `<a href="categories.html" class="chip">View All</a>`;
-    }
 
     function doSearch() {
       const q = document.getElementById("headerSearch").value.trim();
