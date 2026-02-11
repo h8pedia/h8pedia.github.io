@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search — h8pedia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="categories.html" class="nav-link">Categories</a>
+        <a href="search.html" class="nav-link active">Search</a>
+        <span id="navAuth"></span>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="content-card">
+      <div class="article-header">
+        <h1 class="article-title">Search h8pedia</h1>
+      </div>
+
+      <!-- Search Form -->
+      <div style="display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap;">
+        <input type="text" id="searchInput" class="form-input" placeholder="Search for articles, topics, users..." style="flex:1; min-width:200px;" autofocus>
+        <button class="btn btn-primary" onclick="performSearch()">Search</button>
+      </div>
+
+      <!-- Results -->
+      <div id="searchResults">
+        <p class="text-muted text-center" style="padding:32px;">Enter a search term to find articles.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      await BanSystem.enforceBan();
+
+      const q = getParam("q");
+      if (q) {
+        document.getElementById("searchInput").value = q;
+        document.getElementById("headerSearch").value = q;
+        performSearch();
+      }
+    });
+
+    document.getElementById("searchInput")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") performSearch();
+    });
+
+    async function performSearch() {
+      const query = document.getElementById("searchInput").value.trim().toLowerCase();
+      const container = document.getElementById("searchResults");
+
+      if (!query) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">Enter a search term.</p>';
+        return;
+      }
+
+      container.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Searching...</div>';
+
+      // Update URL
+      history.replaceState(null, "", `search.html?q=${encodeURIComponent(query)}`);
+
+      const articles = await db.get("/articles");
+      if (!articles) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">No articles found.</p>';
+        return;
+      }
+
+      const results = Object.entries(articles)
+        .map(([id, a]) => ({ id, ...a }))
+        .filter(a => !a.deleted)
+        .filter(a => {
+          const title = (a.title || "").toLowerCase();
+          const content = (a.content || "").toLowerCase();
+          const category = (a.category || "").toLowerCase();
+          const author = (a.author || "").toLowerCase();
+          return title.includes(query) || content.includes(query) || category.includes(query) || author.includes(query);
+        })
+        .sort((a, b) => {
+          // Title matches first
+          const aTitle = (a.title || "").toLowerCase().includes(query) ? 1 : 0;
+          const bTitle = (b.title || "").toLowerCase().includes(query) ? 1 : 0;
+          if (bTitle !== aTitle) return bTitle - aTitle;
+          return (b.views || 0) - (a.views || 0);
+        });
+
+      if (!results.length) {
+        container.innerHTML = `
+          <p class="text-muted text-center" style="padding:32px;">
+            No articles found for "<strong>${esc(query)}</strong>". 
+            <br><br>
+            <a href="editor.html" class="btn btn-primary btn-sm">Create this article</a>
+          </p>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">${results.length} result${results.length === 1 ? '' : 's'} for "<strong>${esc(query)}</strong>"</p>
+        <div class="article-list">
+          ${results.map(a => {
+            const excerpt = stripMarkdown(a.content || "").slice(0, 200);
+            // Highlight query in excerpt
+            const highlightedExcerpt = excerpt.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
+            return `
+              <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
+                <div class="article-card-title">${esc(a.title)}</div>
+                <div class="article-card-excerpt">${highlightedExcerpt}...</div>
+                <div class="article-card-meta">
+                  ${a.category ? '<span class="chip" style="padding:2px 8px; font-size:11px;">' + esc(a.category) + '</span> &middot; ' : ''}
+                  by ${esc(a.author)} &middot; ${a.views || 0} views
+                </div>
+              </a>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) {
+        document.getElementById("searchInput").value = q;
+        performSearch();
+      }
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>

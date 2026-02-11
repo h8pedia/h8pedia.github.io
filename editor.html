@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor — h8pedia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="categories.html" class="nav-link">Categories</a>
+        <span id="navAuth"></span>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="content-card">
+      <div class="article-header">
+        <h1 class="article-title" id="editorTitle">Create New Article</h1>
+      </div>
+
+      <div id="authGate" class="alert alert-warning hidden">
+        You must <a href="login.html">log in</a> and verify your email to create or edit articles.
+      </div>
+
+      <div id="verifyGate" class="alert alert-warning hidden">
+        You must verify your email before editing. Check your <a href="profile.html">profile</a>.
+      </div>
+
+      <form id="editorForm" onsubmit="return handleSave(event)">
+        <!-- Title -->
+        <div class="form-group">
+          <label class="form-label" for="articleTitle">Article Title</label>
+          <input type="text" id="articleTitle" class="form-input" placeholder="Article title" required>
+        </div>
+
+        <!-- Category -->
+        <div class="form-group">
+          <label class="form-label" for="articleCategory">Category</label>
+          <input type="text" id="articleCategory" class="form-input" placeholder="e.g. History, Science, People, Campus">
+          <div class="form-hint">Choose a category that best fits this article</div>
+        </div>
+
+        <!-- Markdown Toolbar -->
+        <div class="form-group">
+          <label class="form-label">Content (Markdown)</label>
+          <div class="editor-toolbar">
+            <button type="button" onclick="insertMD('**', '**')" title="Bold"><strong>B</strong></button>
+            <button type="button" onclick="insertMD('*', '*')" title="Italic"><em>I</em></button>
+            <button type="button" onclick="insertMD('## ', '')" title="Heading">H2</button>
+            <button type="button" onclick="insertMD('### ', '')" title="Subheading">H3</button>
+            <button type="button" onclick="insertMD('[', '](url)')" title="Link">Link</button>
+            <button type="button" onclick="insertMD('![alt](', ')')" title="Image">Img</button>
+            <button type="button" onclick="insertMD('`', '`')" title="Inline code">Code</button>
+            <button type="button" onclick="insertMD('```\n', '\n```')" title="Code block">Block</button>
+            <button type="button" onclick="insertMD('> ', '')" title="Quote">Quote</button>
+            <button type="button" onclick="insertMD('- ', '')" title="List item">List</button>
+            <button type="button" onclick="insertMD('---\n', '')" title="Horizontal rule">HR</button>
+          </div>
+          <textarea id="articleContent" class="editor-textarea" placeholder="Write your article content here using Markdown..." required></textarea>
+        </div>
+
+        <!-- Edit Summary (for edits) -->
+        <div class="form-group hidden" id="summaryGroup">
+          <label class="form-label" for="editSummary">Edit Summary</label>
+          <input type="text" id="editSummary" class="form-input" placeholder="Briefly describe your changes">
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary" id="saveBtn">Publish Article</button>
+          <button type="button" class="btn btn-secondary" onclick="togglePreview()">Preview</button>
+          <a href="index.html" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+
+      <!-- Preview panel -->
+      <div id="previewPanel" class="hidden mt-6">
+        <h2 style="font-family:var(--font-serif); font-size:20px; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--accent);">Preview</h2>
+        <div id="previewBody" class="article-body"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let editingId = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      const banned = await BanSystem.enforceBan();
+      if (banned) return;
+
+      // Auth check
+      if (!Auth.isLoggedIn()) {
+        document.getElementById("authGate").classList.remove("hidden");
+        document.getElementById("editorForm").classList.add("hidden");
+        return;
+      }
+
+      // Verify check
+      const userData = await Auth.getUserData();
+      if (userData && !userData.verified) {
+        document.getElementById("verifyGate").classList.remove("hidden");
+        document.getElementById("editorForm").classList.add("hidden");
+        return;
+      }
+
+      // Check if editing existing article
+      editingId = getParam("id");
+      if (editingId) {
+        document.getElementById("editorTitle").textContent = "Edit Article";
+        document.getElementById("summaryGroup").classList.remove("hidden");
+        document.getElementById("saveBtn").textContent = "Save Changes";
+        await loadArticleForEdit(editingId);
+      }
+    });
+
+    async function loadArticleForEdit(id) {
+      const article = await db.get(`/articles/${id}`);
+      if (!article) {
+        showToast("Article not found", "error");
+        return;
+      }
+      document.getElementById("articleTitle").value = article.title || "";
+      document.getElementById("articleCategory").value = article.category || "";
+      document.getElementById("articleContent").value = article.content || "";
+    }
+
+    function insertMD(before, after) {
+      const ta = document.getElementById("articleContent");
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const selected = ta.value.substring(start, end);
+      const replacement = before + (selected || "text") + after;
+      ta.value = ta.value.substring(0, start) + replacement + ta.value.substring(end);
+      ta.focus();
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = start + before.length + (selected || "text").length;
+    }
+
+    function togglePreview() {
+      const panel = document.getElementById("previewPanel");
+      panel.classList.toggle("hidden");
+      if (!panel.classList.contains("hidden")) {
+        const md = document.getElementById("articleContent").value;
+        document.getElementById("previewBody").innerHTML = renderMarkdown(md);
+      }
+    }
+
+    async function handleSave(e) {
+      e.preventDefault();
+      const btn = document.getElementById("saveBtn");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+      const title = document.getElementById("articleTitle").value.trim();
+      const category = document.getElementById("articleCategory").value.trim();
+      const content = document.getElementById("articleContent").value.trim();
+      const summary = document.getElementById("editSummary").value.trim();
+      const user = Auth.getUser();
+
+      if (!title || !content) {
+        showToast("Title and content are required", "error");
+        btn.disabled = false;
+        btn.textContent = editingId ? "Save Changes" : "Publish Article";
+        return false;
+      }
+
+      try {
+        if (editingId) {
+          // Save current version to history
+          const current = await db.get(`/articles/${editingId}`);
+          if (current) {
+            await db.push(`/articles/${editingId}/history`, {
+              editor: current.lastEditor || current.author,
+              content: current.content,
+              title: current.title,
+              summary: summary || "Edit",
+              editedAt: new Date().toISOString(),
+            });
+          }
+
+          // Update article
+          await db.update(`/articles/${editingId}`, {
+            title,
+            category,
+            content,
+            lastEditor: user,
+            updatedAt: new Date().toISOString(),
+            editCount: (current?.editCount || 0) + 1,
+          });
+
+          // Update user edit count
+          const userData = await db.get(`/users/${user}`);
+          if (userData) {
+            await db.update(`/users/${user}`, { editsCount: (userData.editsCount || 0) + 1 });
+          }
+
+          // Activity log
+          await db.push("/activity", {
+            type: "edit",
+            articleId: editingId,
+            articleTitle: title,
+            user,
+            summary,
+            timestamp: new Date().toISOString(),
+          });
+
+          showToast("Article updated!", "success");
+          setTimeout(() => location.href = `article.html?id=${encodeURIComponent(editingId)}`, 800);
+        } else {
+          // Create new article
+          const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const id = slug + "-" + db.generateId();
+
+          await db.set(`/articles/${id}`, {
+            title,
+            category,
+            content,
+            author: user,
+            lastEditor: user,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            views: 0,
+            editCount: 0,
+          });
+
+          // Update user article count
+          const userData = await db.get(`/users/${user}`);
+          if (userData) {
+            await db.update(`/users/${user}`, { articlesCreated: (userData.articlesCreated || 0) + 1 });
+          }
+
+          // Activity log
+          await db.push("/activity", {
+            type: "create",
+            articleId: id,
+            articleTitle: title,
+            user,
+            timestamp: new Date().toISOString(),
+          });
+
+          // Notify moderators
+          await db.push("/notifications", {
+            type: "new_article",
+            message: `${user} created a new article: "${title}"`,
+            articleId: id,
+            user,
+            read: false,
+            timestamp: new Date().toISOString(),
+          });
+
+          showToast("Article published!", "success");
+          setTimeout(() => location.href = `article.html?id=${encodeURIComponent(id)}`, 800);
+        }
+      } catch (err) {
+        showToast("Failed to save. Please try again.", "error");
+        btn.disabled = false;
+        btn.textContent = editingId ? "Save Changes" : "Publish Article";
+      }
+      return false;
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>

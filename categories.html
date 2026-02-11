@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Categories — h8pedia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="categories.html" class="nav-link active">Categories</a>
+        <a href="search.html" class="nav-link">Search</a>
+        <span id="navAuth"></span>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="content-card">
+      <div class="article-header">
+        <h1 class="article-title" id="categoryPageTitle">Browse Categories</h1>
+      </div>
+
+      <!-- Category chips -->
+      <div id="categoryChips" class="category-chips" style="margin-bottom:24px;">
+        <div class="loading-overlay"><span class="spinner"></span></div>
+      </div>
+
+      <!-- Articles for selected category -->
+      <div id="categoryArticles" class="article-list"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let allArticles = [];
+    let selectedCat = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      await BanSystem.enforceBan();
+
+      selectedCat = getParam("cat");
+      await loadCategories();
+    });
+
+    async function loadCategories() {
+      const chipsEl = document.getElementById("categoryChips");
+      const articlesEl = document.getElementById("categoryArticles");
+      const titleEl = document.getElementById("categoryPageTitle");
+
+      const articles = await db.get("/articles");
+      if (!articles) {
+        chipsEl.innerHTML = '<p class="text-muted">No articles yet.</p>';
+        return;
+      }
+
+      allArticles = Object.entries(articles)
+        .map(([id, a]) => ({ id, ...a }))
+        .filter(a => !a.deleted);
+
+      // Collect categories
+      const catMap = {};
+      allArticles.forEach(a => {
+        const cat = a.category || "Uncategorized";
+        if (!catMap[cat]) catMap[cat] = [];
+        catMap[cat].push(a);
+      });
+
+      const cats = Object.keys(catMap).sort();
+
+      // Render chips
+      chipsEl.innerHTML = `
+        <span class="chip ${!selectedCat ? 'active' : ''}" onclick="selectCat(null)">All (${allArticles.length})</span>
+        ${cats.map(c => `
+          <span class="chip ${selectedCat === c ? 'active' : ''}" onclick="selectCat('${c.replace(/'/g, "\\'")}')">${esc(c)} (${catMap[c].length})</span>
+        `).join("")}
+      `;
+
+      // Show articles
+      if (selectedCat) {
+        titleEl.textContent = selectedCat;
+        const filtered = catMap[selectedCat] || [];
+        renderArticles(filtered, articlesEl);
+      } else {
+        titleEl.textContent = "Browse Categories";
+        // Show all, grouped
+        let html = "";
+        cats.forEach(c => {
+          html += `<h2 style="font-family:var(--font-serif); font-size:18px; margin:24px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border-light);">${esc(c)} <span style="font-size:14px; color:var(--text-muted);">(${catMap[c].length})</span></h2>`;
+          html += catMap[c].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5).map(a => `
+            <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card" style="margin-bottom:8px;">
+              <div class="article-card-title">${esc(a.title)}</div>
+              <div class="article-card-meta">by ${esc(a.author)} &middot; ${a.views || 0} views</div>
+            </a>
+          `).join("");
+        });
+        articlesEl.innerHTML = html || '<p class="text-muted">No articles yet.</p>';
+      }
+    }
+
+    function selectCat(cat) {
+      selectedCat = cat;
+      const url = cat ? `categories.html?cat=${encodeURIComponent(cat)}` : 'categories.html';
+      history.replaceState(null, "", url);
+      loadCategories();
+    }
+
+    function renderArticles(arr, container) {
+      if (!arr.length) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">No articles in this category.</p>';
+        return;
+      }
+      arr.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+      container.innerHTML = arr.map(a => {
+        const excerpt = stripMarkdown(a.content || "").slice(0, 160);
+        return `
+          <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
+            <div class="article-card-title">${esc(a.title)}</div>
+            <div class="article-card-excerpt">${esc(excerpt)}...</div>
+            <div class="article-card-meta">by ${esc(a.author)} &middot; ${a.views || 0} views &middot; ${formatDate(a.updatedAt || a.createdAt)}</div>
+          </a>
+        `;
+      }).join("");
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>

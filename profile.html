@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — h8pedia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="categories.html" class="nav-link">Categories</a>
+        <span id="navAuth"></span>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="content-card" id="profileContainer">
+      <div class="loading-overlay"><span class="spinner"></span> Loading profile...</div>
+    </div>
+
+    <!-- User's Articles -->
+    <div class="content-card mt-6" id="userArticlesSection">
+      <h2 style="font-family:var(--font-serif); font-size:20px; margin-bottom:16px;">Articles by this user</h2>
+      <div id="userArticles" class="article-list">
+        <div class="loading-overlay"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <!-- Bookmarks (own profile only) -->
+    <div class="content-card mt-6 hidden" id="bookmarksSection">
+      <h2 style="font-family:var(--font-serif); font-size:20px; margin-bottom:16px;">Your Bookmarks</h2>
+      <div id="bookmarksList" class="article-list"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      await BanSystem.enforceBan();
+
+      const targetUser = getParam("user") || Auth.getUser();
+      if (!targetUser) {
+        document.getElementById("profileContainer").innerHTML = '<p class="text-muted text-center" style="padding:32px;">No user specified. <a href="login.html">Log in</a></p>';
+        return;
+      }
+
+      loadProfile(targetUser);
+      loadUserArticles(targetUser);
+
+      // Show bookmarks only for own profile
+      if (targetUser === Auth.getUser()) {
+        document.getElementById("bookmarksSection").classList.remove("hidden");
+        loadBookmarks(targetUser);
+      }
+    });
+
+    async function loadProfile(username) {
+      const container = document.getElementById("profileContainer");
+      const userData = await db.get(`/users/${username}`);
+
+      if (!userData) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">User not found.</p>';
+        return;
+      }
+
+      document.title = username + " — h8pedia";
+      const initial = username.charAt(0).toUpperCase();
+      const isOwn = username === Auth.getUser();
+
+      const roleBadge = userData.role === "admin" ? '<span class="badge badge-admin">Admin</span>' :
+                        userData.role === "moderator" ? '<span class="badge badge-mod">Moderator</span>' :
+                        '<span class="badge badge-user">User</span>';
+
+      const verifiedBadge = userData.verified ? '<span class="badge badge-verified">Verified</span>' : '<span class="badge badge-unverified">Unverified</span>';
+
+      container.innerHTML = `
+        <div class="profile-header">
+          <div class="profile-avatar">${esc(initial)}</div>
+          <div class="profile-info">
+            <h1>${esc(username)} ${roleBadge} ${verifiedBadge}</h1>
+            <div class="profile-stats">
+              <span>${userData.articlesCreated || 0} articles created</span>
+              <span>${userData.editsCount || 0} edits</span>
+              <span>Joined ${formatDate(userData.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${userData.bio ? `<p style="font-size:15px; color:var(--text-secondary); margin-bottom:16px;">${esc(userData.bio)}</p>` : ''}
+
+        ${isOwn ? `
+          <div style="border-top:1px solid var(--border-light); padding-top:16px; margin-top:16px;">
+            <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Edit Profile</h3>
+            <div class="form-group">
+              <label class="form-label" for="bioInput">Bio</label>
+              <input type="text" id="bioInput" class="form-input" placeholder="Tell us about yourself" value="${esc(userData.bio || '')}">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveBio()">Save Bio</button>
+          </div>
+
+          ${!userData.verified ? `
+            <div style="border-top:1px solid var(--border-light); padding-top:16px; margin-top:16px;">
+              <div class="alert alert-warning">Your email is not verified. Enter your verification code below.</div>
+              <div class="form-group">
+                <input type="text" id="verifyCodeInput" class="form-input" placeholder="Verification code" style="max-width:200px; text-transform:uppercase; font-family:var(--font-mono);">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="doVerify()">Verify Email</button>
+            </div>
+          ` : ''}
+        ` : ''}
+      `;
+    }
+
+    async function saveBio() {
+      const bio = document.getElementById("bioInput").value.trim();
+      await db.update(`/users/${Auth.getUser()}`, { bio });
+      showToast("Bio updated!", "success");
+    }
+
+    async function doVerify() {
+      const code = document.getElementById("verifyCodeInput").value.trim();
+      const result = await Auth.verifyEmail(code);
+      if (result.ok) {
+        showToast("Email verified!", "success");
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast(result.error, "error");
+      }
+    }
+
+    async function loadUserArticles(username) {
+      const container = document.getElementById("userArticles");
+      const articles = await db.get("/articles");
+      if (!articles) { container.innerHTML = '<p class="text-muted">No articles yet.</p>'; return; }
+
+      const arr = Object.entries(articles)
+        .map(([id, a]) => ({ id, ...a }))
+        .filter(a => !a.deleted && a.author === username)
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+      if (!arr.length) {
+        container.innerHTML = '<p class="text-muted">No articles yet.</p>';
+        return;
+      }
+
+      container.innerHTML = arr.map(a => `
+        <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
+          <div class="article-card-title">${esc(a.title)}</div>
+          <div class="article-card-meta">${esc(a.category || "")} &middot; ${formatDate(a.createdAt)}</div>
+        </a>
+      `).join("");
+    }
+
+    async function loadBookmarks(username) {
+      const container = document.getElementById("bookmarksList");
+      const bookmarks = await db.get(`/users/${username}/bookmarks`);
+      if (!bookmarks) { container.innerHTML = '<p class="text-muted">No bookmarks yet.</p>'; return; }
+
+      const ids = Object.keys(bookmarks);
+      const items = [];
+      for (const id of ids) {
+        const article = await db.get(`/articles/${id}`);
+        if (article && !article.deleted) {
+          items.push({ id, ...article });
+        }
+      }
+
+      if (!items.length) {
+        container.innerHTML = '<p class="text-muted">No bookmarks yet.</p>';
+        return;
+      }
+
+      container.innerHTML = items.map(a => `
+        <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
+          <div class="article-card-title">${esc(a.title)}</div>
+          <div class="article-card-meta">${esc(a.category || "")} &middot; by ${esc(a.author)}</div>
+        </a>
+      `).join("");
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>

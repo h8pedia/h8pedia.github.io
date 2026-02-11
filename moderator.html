@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moderator Panel — h8pedia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="categories.html" class="nav-link">Categories</a>
+        <span id="navAuth"></span>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="content-card">
+      <div class="article-header">
+        <h1 class="article-title">Moderator Panel</h1>
+      </div>
+
+      <div id="accessDenied" class="alert alert-danger hidden">You do not have permission to access this page.</div>
+
+      <div id="modContent" class="hidden">
+        <!-- Stats -->
+        <div class="stat-grid mb-4">
+          <div class="stat-card">
+            <div class="stat-number" id="modStatArticles">-</div>
+            <div class="stat-label">Articles</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="modStatUsers">-</div>
+            <div class="stat-label">Users</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="modStatEdits">-</div>
+            <div class="stat-label">Total Edits</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="modStatBanned">-</div>
+            <div class="stat-label">Banned</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('users', this)">Users</button>
+          <button class="tab" onclick="showTab('activity', this)">Activity Log</button>
+          <button class="tab" onclick="showTab('notifications', this)">Notifications</button>
+          <button class="tab" onclick="showTab('articles', this)">Articles</button>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="tab-users" class="tab-content">
+          <div style="overflow-x:auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Joined</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody">
+                <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Activity Log Tab -->
+        <div id="tab-activity" class="tab-content hidden">
+          <div id="activityList" class="history-list">
+            <div class="loading-overlay"><span class="spinner"></span></div>
+          </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="tab-notifications" class="tab-content hidden">
+          <div id="notificationList" class="history-list">
+            <div class="loading-overlay"><span class="spinner"></span></div>
+          </div>
+        </div>
+
+        <!-- Articles Tab -->
+        <div id="tab-articles" class="tab-content hidden">
+          <div style="overflow-x:auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Author</th>
+                  <th>Category</th>
+                  <th>Edits</th>
+                  <th>Views</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="articleTableBody">
+                <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      const banned = await BanSystem.enforceBan();
+      if (banned) return;
+
+      const isMod = await Auth.isModerator();
+      if (!isMod) {
+        document.getElementById("accessDenied").classList.remove("hidden");
+        return;
+      }
+
+      document.getElementById("modContent").classList.remove("hidden");
+      loadModStats();
+      loadUsers();
+      loadActivityLog();
+      loadNotifications();
+      loadArticlesTable();
+    });
+
+    function showTab(name, el) {
+      document.querySelectorAll(".tab-content").forEach(t => t.classList.add("hidden"));
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.getElementById("tab-" + name).classList.remove("hidden");
+      el.classList.add("active");
+    }
+
+    async function loadModStats() {
+      const [articles, users, bans] = await Promise.all([
+        db.get("/articles"),
+        db.get("/users"),
+        db.get("/bans/users"),
+      ]);
+      const artArr = articles ? Object.values(articles).filter(a => !a.deleted) : [];
+      const userArr = users ? Object.keys(users) : [];
+      const banArr = bans ? Object.keys(bans) : [];
+      let totalEdits = 0;
+      artArr.forEach(a => totalEdits += (a.editCount || 0));
+
+      document.getElementById("modStatArticles").textContent = artArr.length;
+      document.getElementById("modStatUsers").textContent = userArr.length;
+      document.getElementById("modStatEdits").textContent = totalEdits;
+      document.getElementById("modStatBanned").textContent = banArr.length;
+    }
+
+    async function loadUsers() {
+      const tbody = document.getElementById("userTableBody");
+      const users = await db.get("/users");
+      if (!users) { tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No users.</td></tr>'; return; }
+
+      const currentUser = Auth.getUser();
+      const rows = Object.entries(users).map(([username, u]) => {
+        const roleBadge = u.role === "admin" ? '<span class="badge badge-admin">Admin</span>' :
+                          u.role === "moderator" ? '<span class="badge badge-mod">Mod</span>' :
+                          '<span class="badge badge-user">User</span>';
+        const statusBadge = u.banned ? '<span class="badge badge-banned">Banned</span>' :
+                            u.verified ? '<span class="badge badge-verified">Verified</span>' :
+                            '<span class="badge badge-unverified">Unverified</span>';
+
+        return `
+          <tr>
+            <td><a href="profile.html?user=${encodeURIComponent(username)}">${esc(username)}</a></td>
+            <td>${esc(u.email || "")}</td>
+            <td>${roleBadge}</td>
+            <td>${statusBadge}</td>
+            <td>${formatDate(u.createdAt)}</td>
+            <td>
+              ${!u.banned && username !== currentUser ? `<button class="btn btn-danger btn-sm" onclick="banUserAction('${username}')">Ban</button>` : ''}
+              ${u.banned ? `<button class="btn btn-secondary btn-sm" onclick="unbanUserAction('${username}')">Unban</button>` : ''}
+              ${u.role === 'user' ? `<button class="btn btn-secondary btn-sm" onclick="promoteUser('${username}', 'moderator')">Make Mod</button>` : ''}
+              ${u.role === 'moderator' ? `<button class="btn btn-ghost btn-sm" onclick="promoteUser('${username}', 'user')">Demote</button>` : ''}
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = rows.join("");
+    }
+
+    async function banUserAction(username) {
+      const reason = prompt("Ban reason for " + username + ":");
+      if (!reason) return;
+      await BanSystem.banUser(username, reason);
+      await db.push("/activity", {
+        type: "ban",
+        targetUser: username,
+        user: Auth.getUser(),
+        reason,
+        timestamp: new Date().toISOString(),
+      });
+      showToast(username + " has been banned.", "success");
+      loadUsers();
+      loadModStats();
+    }
+
+    async function unbanUserAction(username) {
+      if (!confirm("Unban " + username + "?")) return;
+      await db.delete(`/bans/users/${username}`);
+      await db.update(`/users/${username}`, { banned: false, banReason: null });
+
+      // Try to remove IP/fingerprint bans for this user
+      const userData = await db.get(`/users/${username}`);
+      if (userData) {
+        if (userData.lastIP) {
+          const safeIp = userData.lastIP.replace(/\./g, "_");
+          await db.delete(`/bans/ips/${safeIp}`);
+        }
+        if (userData.fingerprint) {
+          await db.delete(`/bans/fingerprints/${userData.fingerprint}`);
+        }
+      }
+
+      await db.push("/activity", {
+        type: "unban",
+        targetUser: username,
+        user: Auth.getUser(),
+        timestamp: new Date().toISOString(),
+      });
+      showToast(username + " has been unbanned.", "success");
+      loadUsers();
+      loadModStats();
+    }
+
+    async function promoteUser(username, role) {
+      await db.update(`/users/${username}`, { role });
+      await db.push("/activity", {
+        type: "role_change",
+        targetUser: username,
+        newRole: role,
+        user: Auth.getUser(),
+        timestamp: new Date().toISOString(),
+      });
+      showToast(username + " is now " + role, "success");
+      loadUsers();
+    }
+
+    async function loadActivityLog() {
+      const container = document.getElementById("activityList");
+      const activity = await db.get("/activity");
+      if (!activity) { container.innerHTML = '<p class="text-muted">No activity yet.</p>'; return; }
+
+      const arr = Object.values(activity).sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+
+      container.innerHTML = arr.slice(0, 50).map(a => {
+        let desc = "";
+        switch (a.type) {
+          case "create": desc = `<strong>${esc(a.user)}</strong> created article <a href="article.html?id=${encodeURIComponent(a.articleId)}">${esc(a.articleTitle)}</a>`; break;
+          case "edit": desc = `<strong>${esc(a.user)}</strong> edited <a href="article.html?id=${encodeURIComponent(a.articleId)}">${esc(a.articleTitle)}</a>${a.summary ? ': ' + esc(a.summary) : ''}`; break;
+          case "delete": desc = `<strong>${esc(a.user)}</strong> deleted an article`; break;
+          case "revert": desc = `<strong>${esc(a.user)}</strong> reverted an article`; break;
+          case "ban": desc = `<strong>${esc(a.user)}</strong> banned <strong>${esc(a.targetUser)}</strong>: ${esc(a.reason)}`; break;
+          case "unban": desc = `<strong>${esc(a.user)}</strong> unbanned <strong>${esc(a.targetUser)}</strong>`; break;
+          case "role_change": desc = `<strong>${esc(a.user)}</strong> changed <strong>${esc(a.targetUser)}</strong> role to ${esc(a.newRole)}`; break;
+          default: desc = `${esc(a.type)} by ${esc(a.user)}`;
+        }
+        return `
+          <div class="history-item">
+            <span class="history-dot"></span>
+            <div>
+              <div>${desc}</div>
+              <div class="history-time">${formatDateTime(a.timestamp)}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadNotifications() {
+      const container = document.getElementById("notificationList");
+      const notifs = await db.get("/notifications");
+      if (!notifs) { container.innerHTML = '<p class="text-muted">No notifications.</p>'; return; }
+
+      const arr = Object.entries(notifs)
+        .map(([id, n]) => ({ id, ...n }))
+        .sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+
+      container.innerHTML = arr.slice(0, 30).map(n => `
+        <div class="history-item" style="${n.read ? 'opacity:0.6' : ''}">
+          <span class="history-dot" style="background:${n.read ? 'var(--border)' : 'var(--accent)'}"></span>
+          <div>
+            <div>${esc(n.message)}</div>
+            ${n.articleId ? `<a href="article.html?id=${encodeURIComponent(n.articleId)}" class="btn btn-ghost btn-sm mt-2">View Article</a>` : ''}
+            <div class="history-time">${formatDateTime(n.timestamp)}</div>
+          </div>
+        </div>
+      `).join("");
+
+      // Mark all as read
+      for (const n of arr) {
+        if (!n.read) {
+          db.update(`/notifications/${n.id}`, { read: true });
+        }
+      }
+    }
+
+    async function loadArticlesTable() {
+      const tbody = document.getElementById("articleTableBody");
+      const articles = await db.get("/articles");
+      if (!articles) { tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No articles.</td></tr>'; return; }
+
+      const arr = Object.entries(articles)
+        .map(([id, a]) => ({ id, ...a }))
+        .filter(a => !a.deleted)
+        .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+
+      tbody.innerHTML = arr.map(a => `
+        <tr>
+          <td><a href="article.html?id=${encodeURIComponent(a.id)}">${esc(a.title)}</a></td>
+          <td><a href="profile.html?user=${encodeURIComponent(a.author)}">${esc(a.author)}</a></td>
+          <td>${esc(a.category || "-")}</td>
+          <td>${a.editCount || 0}</td>
+          <td>${a.views || 0}</td>
+          <td>
+            <a href="editor.html?id=${encodeURIComponent(a.id)}" class="btn btn-secondary btn-sm">Edit</a>
+            <button class="btn btn-danger btn-sm" onclick="deleteArticleMod('${a.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    async function deleteArticleMod(id) {
+      if (!confirm("Delete this article?")) return;
+      await db.update(`/articles/${id}`, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: Auth.getUser() });
+      showToast("Article deleted", "success");
+      loadArticlesTable();
+      loadModStats();
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>

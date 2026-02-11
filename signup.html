@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up — h8pedia</title>
+  <meta name="description" content="Create your h8pedia account to start contributing.">
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <a href="index.html" class="site-logo" style="display:block;text-align:center;margin-bottom:24px;font-size:28px;">h8<span>pedia</span></a>
+      <h1>Create Account</h1>
+      <p class="subtitle">Join h8pedia with your Hackley email</p>
+
+      <div id="signupError" class="alert alert-danger hidden"></div>
+      <div id="signupSuccess" class="alert alert-success hidden"></div>
+
+      <!-- Signup Form -->
+      <form id="signupForm" onsubmit="return handleSignup(event)">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input type="text" id="username" class="form-input" placeholder="Choose a username" required minlength="3" autocomplete="username">
+          <div class="form-hint">At least 3 characters, lowercase</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Hackley Email</label>
+          <input type="email" id="email" class="form-input" placeholder="you@hackley.org" required autocomplete="email">
+          <div class="form-hint">Must be a @hackley.org address</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" class="form-input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary" id="signupBtn" style="width:100%; justify-content:center;">
+          Create Account
+        </button>
+      </form>
+
+      <!-- Verification Form (hidden by default) -->
+      <div id="verifySection" class="hidden">
+        <div class="alert alert-info">
+          A verification code has been generated. In a production environment, this would be emailed to you. For now, your code is shown below.
+        </div>
+        <div id="verifyCodeDisplay" style="text-align:center; font-size:24px; font-weight:700; font-family:var(--font-mono); color:var(--accent); padding:16px; background:var(--bg-infobox); border-radius:var(--radius); margin-bottom:16px;"></div>
+        <div class="form-group">
+          <label class="form-label" for="verifyCode">Enter Verification Code</label>
+          <input type="text" id="verifyCode" class="form-input" placeholder="Enter the code above" maxlength="6" style="text-transform:uppercase; text-align:center; font-family:var(--font-mono); font-size:18px; letter-spacing:4px;">
+        </div>
+        <button type="button" class="btn btn-primary" id="verifyBtn" onclick="handleVerify()" style="width:100%; justify-content:center;">
+          Verify Email
+        </button>
+      </div>
+
+      <div class="auth-footer">
+        Already have an account? <a href="login.html">Log in</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const banned = await BanSystem.enforceBan();
+      if (banned) return;
+      if (Auth.isLoggedIn()) location.href = "index.html";
+    });
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const btn = document.getElementById("signupBtn");
+      const errEl = document.getElementById("signupError");
+      const successEl = document.getElementById("signupSuccess");
+
+      errEl.classList.add("hidden");
+      successEl.classList.add("hidden");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+      const username = document.getElementById("username").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const result = await Auth.signup(username, email, password);
+
+      if (result.ok) {
+        document.getElementById("signupForm").classList.add("hidden");
+        document.getElementById("verifySection").classList.remove("hidden");
+        document.getElementById("verifyCodeDisplay").textContent = result.verifyCode;
+        successEl.textContent = "Account created! Please verify your email.";
+        successEl.classList.remove("hidden");
+      } else {
+        errEl.textContent = result.error;
+        errEl.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+      }
+      return false;
+    }
+
+    async function handleVerify() {
+      const btn = document.getElementById("verifyBtn");
+      const code = document.getElementById("verifyCode").value.trim();
+      if (!code) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+      const result = await Auth.verifyEmail(code);
+      if (result.ok) {
+        location.href = "index.html";
+      } else {
+        alert(result.error);
+        btn.disabled = false;
+        btn.textContent = "Verify Email";
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>h8pedia — The Student Encyclopedia</title>
+  <meta name="description" content="h8pedia is a student-built encyclopedia for the Hackley community.">
+  <meta name="theme-color" content="#1a5276">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">h8<span>pedia</span></a>
+
+      <div class="header-search">
+        <input type="text" id="headerSearch" placeholder="Search articles..." aria-label="Search articles">
+        <button type="button" onclick="doSearch()" aria-label="Search">&#x1F50D;</button>
+      </div>
+
+      <nav class="header-nav" id="headerNav">
+        <a href="index.html" class="nav-link active">Home</a>
+        <a href="categories.html" class="nav-link">Categories</a>
+        <a href="search.html" class="nav-link">Search</a>
+        <span id="navAuth"></span>
+      </nav>
+
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">&#9776;</button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="page-wrapper">
+    <!-- Hero Section -->
+    <div class="content-card" style="text-align:center; padding:48px 32px; margin-bottom:24px;">
+      <h1 style="font-family:var(--font-serif); font-size:36px; font-weight:400; margin-bottom:8px;">
+        Welcome to <span style="color:var(--accent)">h8pedia</span>
+      </h1>
+      <p style="color:var(--text-secondary); font-size:16px; max-width:520px; margin:0 auto 24px;">
+        The free encyclopedia built by Hackley students, for Hackley students. Browse, learn, and contribute.
+      </p>
+      <div class="header-search" style="max-width:480px; margin:0 auto; display:block;">
+        <input type="text" id="heroSearch" placeholder="Search for any article..." aria-label="Search articles" style="padding:12px 40px 12px 18px; font-size:16px;">
+        <button type="button" onclick="doHeroSearch()" aria-label="Search" style="right:8px;">&#x1F50D;</button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+      <!-- Trending / Recent Articles -->
+      <div style="flex:2; min-width:300px;">
+        <div class="content-card">
+          <h2 style="font-family:var(--font-serif); font-size:22px; margin-bottom:16px;">Recent Articles</h2>
+          <div id="recentArticles" class="article-list">
+            <div class="loading-overlay"><span class="spinner"></span> Loading articles...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div style="flex:1; min-width:250px;">
+        <!-- Stats -->
+        <div class="content-card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Encyclopedia Stats</h3>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:14px;">
+              <span style="color:var(--text-muted);">Total Articles</span>
+              <span id="statArticles" style="font-weight:600;">-</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px;">
+              <span style="color:var(--text-muted);">Total Users</span>
+              <span id="statUsers" style="font-weight:600;">-</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px;">
+              <span style="color:var(--text-muted);">Total Edits</span>
+              <span id="statEdits" style="font-weight:600;">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="content-card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Browse Categories</h3>
+          <div id="categorySidebar" class="category-chips">
+            <span class="chip" onclick="location.href='categories.html'">All Categories</span>
+          </div>
+        </div>
+
+        <!-- Contribute -->
+        <div class="content-card">
+          <h3 style="font-size:15px; font-weight:600; margin-bottom:8px;">Contribute</h3>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+            Help grow h8pedia by writing new articles or improving existing ones.
+          </p>
+          <a href="editor.html" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">Create New Article</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>h8pedia &mdash; Built by students, for students. Content is available under open license.</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-api.js"></script>
+  <script src="js/ban-system.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Home page logic
+    document.addEventListener("DOMContentLoaded", async () => {
+      initNav();
+      await BanSystem.enforceBan();
+      loadRecentArticles();
+      loadStats();
+      loadCategorySidebar();
+    });
+
+    async function loadRecentArticles() {
+      const container = document.getElementById("recentArticles");
+      try {
+        const articles = await db.get("/articles");
+        if (!articles) {
+          container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">No articles yet. Be the first to contribute!</p>';
+          return;
+        }
+
+        const arr = Object.entries(articles)
+          .map(([id, a]) => ({ id, ...a }))
+          .filter(a => !a.deleted)
+          .sort((a, b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || ""));
+
+        if (!arr.length) {
+          container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">No articles yet.</p>';
+          return;
+        }
+
+        container.innerHTML = arr.slice(0, 15).map(a => {
+          const excerpt = stripMarkdown(a.content || "").slice(0, 160);
+          const date = a.updatedAt || a.createdAt;
+          return `
+            <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
+              <div class="article-card-title">${esc(a.title)}</div>
+              <div class="article-card-excerpt">${esc(excerpt)}...</div>
+              <div class="article-card-meta">
+                ${a.category ? '<span class="chip" style="padding:2px 8px; font-size:11px;">' + esc(a.category) + '</span> &middot; ' : ''}
+                Edited by ${esc(a.lastEditor || a.author)} &middot; ${formatDate(date)}
+              </div>
+            </a>
+          `;
+        }).join("");
+      } catch (err) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">Failed to load articles.</p>';
+      }
+    }
+
+    async function loadStats() {
+      const [articles, users] = await Promise.all([db.get("/articles"), db.get("/users")]);
+      const artArr = articles ? Object.values(articles).filter(a => !a.deleted) : [];
+      const userArr = users ? Object.keys(users) : [];
+      let totalEdits = 0;
+      artArr.forEach(a => { totalEdits += (a.editCount || 1); });
+
+      document.getElementById("statArticles").textContent = artArr.length;
+      document.getElementById("statUsers").textContent = userArr.length;
+      document.getElementById("statEdits").textContent = totalEdits;
+    }
+
+    async function loadCategorySidebar() {
+      const container = document.getElementById("categorySidebar");
+      const articles = await db.get("/articles");
+      if (!articles) return;
+
+      const cats = new Set();
+      Object.values(articles).forEach(a => { if (a.category) cats.add(a.category); });
+      const catArr = [...cats].sort();
+      if (!catArr.length) return;
+
+      container.innerHTML = catArr.slice(0, 10).map(c =>
+        `<a href="categories.html?cat=${encodeURIComponent(c)}" class="chip">${esc(c)}</a>`
+      ).join("") + `<a href="categories.html" class="chip">View All</a>`;
+    }
+
+    function doSearch() {
+      const q = document.getElementById("headerSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    function doHeroSearch() {
+      const q = document.getElementById("heroSearch").value.trim();
+      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
+    }
+    document.getElementById("headerSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+    document.getElementById("heroSearch")?.addEventListener("keydown", e => { if (e.key === "Enter") doHeroSearch(); });
+  </script>
+</body>
+</html>
