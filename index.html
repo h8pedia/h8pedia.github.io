@@ -145,18 +145,19 @@
 
         container.innerHTML = arr.slice(0, 15).map(a => {
           const excerpt = stripMarkdown(a.content || "").slice(0, 160);
-          const date = a.updatedAt || a.createdAt;
+          const date = a.createdAt;
           return `
             <a href="article.html?id=${encodeURIComponent(a.id)}" class="article-card">
               <div class="article-card-title">${esc(a.title)}</div>
               <div class="article-card-excerpt">${esc(excerpt)}...</div>
               <div class="article-card-meta">
-                ${a.category ? '<span class="chip" style="padding:2px 8px; font-size:11px;">' + esc(a.category) + '</span> &middot; ' : ''}
-                Edited by ${esc(a.lastEditor || a.author)} &middot; ${formatDate(date)}
+                ${a.category ? `<span class="chip" style="padding:2px 8px; font-size:11px;">${esc(a.category)}</span> &middot; ` : ''}
+                By ${esc(a.author)} &middot; ${formatDate(date)}
               </div>
             </a>
           `;
         }).join("");
+
       } catch (err) {
         container.innerHTML = '<p class="text-muted text-center" style="padding:24px;">Failed to load articles.</p>';
       }
