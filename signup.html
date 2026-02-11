@@ -16,7 +16,6 @@
       <p class="subtitle">Join h8pedia with your Hackley email</p>
 
       <div id="signupError" class="alert alert-danger hidden"></div>
-      <div id="signupSuccess" class="alert alert-success hidden"></div>
 
       <!-- Signup Form -->
       <form id="signupForm" onsubmit="return handleSignup(event)">
@@ -39,21 +38,6 @@
         </button>
       </form>
 
-      <!-- Verification Form (hidden by default) -->
-      <div id="verifySection" class="hidden">
-        <div class="alert alert-info">
-          A verification code has been generated. In a production environment, this would be emailed to you. For now, your code is shown below.
-        </div>
-        <div id="verifyCodeDisplay" style="text-align:center; font-size:24px; font-weight:700; font-family:var(--font-mono); color:var(--accent); padding:16px; background:var(--bg-infobox); border-radius:var(--radius); margin-bottom:16px;"></div>
-        <div class="form-group">
-          <label class="form-label" for="verifyCode">Enter Verification Code</label>
-          <input type="text" id="verifyCode" class="form-input" placeholder="Enter the code above" maxlength="6" style="text-transform:uppercase; text-align:center; font-family:var(--font-mono); font-size:18px; letter-spacing:4px;">
-        </div>
-        <button type="button" class="btn btn-primary" id="verifyBtn" onclick="handleVerify()" style="width:100%; justify-content:center;">
-          Verify Email
-        </button>
-      </div>
-
       <div class="auth-footer">
         Already have an account? <a href="login.html">Log in</a>
       </div>
@@ -75,10 +59,8 @@
       e.preventDefault();
       const btn = document.getElementById("signupBtn");
       const errEl = document.getElementById("signupError");
-      const successEl = document.getElementById("signupSuccess");
 
       errEl.classList.add("hidden");
-      successEl.classList.add("hidden");
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Creating account...';
 
@@ -89,11 +71,8 @@
       const result = await Auth.signup(username, email, password);
 
       if (result.ok) {
-        document.getElementById("signupForm").classList.add("hidden");
-        document.getElementById("verifySection").classList.remove("hidden");
-        document.getElementById("verifyCodeDisplay").textContent = result.verifyCode;
-        successEl.textContent = "Account created! Please verify your email.";
-        successEl.classList.remove("hidden");
+        // Redirect immediately since no verification is needed
+        location.href = "index.html";
       } else {
         errEl.textContent = result.error;
         errEl.classList.remove("hidden");
@@ -101,24 +80,6 @@
         btn.textContent = "Create Account";
       }
       return false;
-    }
-
-    async function handleVerify() {
-      const btn = document.getElementById("verifyBtn");
-      const code = document.getElementById("verifyCode").value.trim();
-      if (!code) return;
-
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Verifying...';
-
-      const result = await Auth.verifyEmail(code);
-      if (result.ok) {
-        location.href = "index.html";
-      } else {
-        alert(result.error);
-        btn.disabled = false;
-        btn.textContent = "Verify Email";
-      }
     }
   </script>
 </body>
