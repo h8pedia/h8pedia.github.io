@@ -89,23 +89,17 @@
           bodyHtml = tocResult.html;
         }
 
-        // Check bookmark and upvote
+        // Check bookmark
         const user = Auth.getUser();
         let isBookmarked = false;
-        let hasUpvoted = false;
         if (user) {
           const bm = await db.get(`/users/${user}/bookmarks/${id}`);
           isBookmarked = !!bm;
-          
-          const upvote = await db.get(`/articles/${id}/upvoters/${user}`);
-          hasUpvoted = !!upvote;
         }
 
         // Actions
         const canEdit = Auth.isLoggedIn();
         const isMod = await Auth.isModerator();
-
-        const upvoteCount = article.upvotes || 0;
 
         container.innerHTML = `
           <div class="article-header">
@@ -123,9 +117,6 @@
 
           <div class="article-actions">
             ${canEdit ? `<a href="editor.html?id=${encodeURIComponent(id)}" class="btn btn-secondary btn-sm">Edit Article</a>` : ''}
-            ${user ? `<button class="btn ${hasUpvoted ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="toggleUpvote('${id}')" id="upvoteBtn">
-              <span id="upvoteIcon">▲</span> <span id="upvoteCount">${upvoteCount}</span>
-            </button>` : `<span class="btn btn-ghost btn-sm" style="cursor:default;opacity:0.6;">▲ ${upvoteCount}</span>`}
             ${user ? `<button class="btn btn-ghost btn-sm" onclick="toggleBookmark('${id}')" id="bookmarkBtn">${isBookmarked ? 'Bookmarked' : 'Bookmark'}</button>` : ''}
             <button class="btn btn-ghost btn-sm" onclick="toggleHistory()">History</button>
             ${isMod ? `<button class="btn btn-danger btn-sm" onclick="deleteArticle('${id}')">Delete</button>` : ''}
@@ -137,43 +128,6 @@
 
       } catch (err) {
         container.innerHTML = '<p class="text-muted text-center" style="padding:32px;">Failed to load article.</p>';
-      }
-    }
-
-    async function toggleUpvote(id) {
-      const user = Auth.getUser();
-      if (!user) {
-        showToast("Please log in to upvote", "error");
-        return;
-      }
-
-      const existing = await db.get(`/articles/${id}/upvoters/${user}`);
-      const currentCount = currentArticle.upvotes || 0;
-      
-      if (existing) {
-        // Remove upvote
-        await db.delete(`/articles/${id}/upvoters/${user}`);
-        const newCount = Math.max(0, currentCount - 1);
-        await db.update(`/articles/${id}`, { upvotes: newCount });
-        
-        currentArticle.upvotes = newCount;
-        document.getElementById("upvoteCount").textContent = newCount;
-        document.getElementById("upvoteBtn").classList.remove("btn-primary");
-        document.getElementById("upvoteBtn").classList.add("btn-ghost");
-        showToast("Upvote removed", "success");
-      } else {
-        // Add upvote
-        await db.set(`/articles/${id}/upvoters/${user}`, { 
-          upvotedAt: new Date().toISOString() 
-        });
-        const newCount = currentCount + 1;
-        await db.update(`/articles/${id}`, { upvotes: newCount });
-        
-        currentArticle.upvotes = newCount;
-        document.getElementById("upvoteCount").textContent = newCount;
-        document.getElementById("upvoteBtn").classList.remove("btn-ghost");
-        document.getElementById("upvoteBtn").classList.add("btn-primary");
-        showToast("Article upvoted!", "success");
       }
     }
 
