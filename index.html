@@ -188,7 +188,7 @@
       if (!catArr.length) return;
 
       container.innerHTML = catArr.slice(0, 10).map(c =>
-        `<a href="categories.html?cat=${encodeURIComponent(c)}" class="chip">${esc(c)}</a>`
+        <span class="chip" onclick="location.href='categories.html'">All Categories</span>
       ).join("") + `<a href="categories.html" class="chip">View All</a>`;
     }
 
