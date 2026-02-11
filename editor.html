@@ -39,6 +39,10 @@
         You must verify your email before editing. Check your <a href="profile.html">profile</a>.
       </div>
 
+      <div id="noEditPermission" class="alert alert-error hidden">
+        You do not have permission to edit this article.
+      </div>
+
       <form id="editorForm" onsubmit="return handleSave(event)">
         <!-- Title -->
         <div class="form-group">
@@ -129,23 +133,31 @@
       // Check if editing existing article
       editingId = getParam("id");
       if (editingId) {
+        const article = await db.get(`/articles/${editingId}`);
+        if (!article) {
+          showToast("Article not found", "error");
+          return;
+        }
+
+        // Check permissions: author, editor, or moderator
+        const userRoles = userData.roles || [];
+        const canEdit = article.author === Auth.getUser() || userRoles.includes("editor") || userRoles.includes("moderator");
+
+        if (!canEdit) {
+          document.getElementById("editorForm").classList.add("hidden");
+          document.getElementById("noEditPermission").classList.remove("hidden");
+          return;
+        }
+
         document.getElementById("editorTitle").textContent = "Edit Article";
         document.getElementById("summaryGroup").classList.remove("hidden");
         document.getElementById("saveBtn").textContent = "Save Changes";
-        await loadArticleForEdit(editingId);
+
+        document.getElementById("articleTitle").value = article.title || "";
+        document.getElementById("articleCategory").value = article.category || "";
+        document.getElementById("articleContent").value = article.content || "";
       }
     });
-
-    async function loadArticleForEdit(id) {
-      const article = await db.get(`/articles/${id}`);
-      if (!article) {
-        showToast("Article not found", "error");
-        return;
-      }
-      document.getElementById("articleTitle").value = article.title || "";
-      document.getElementById("articleCategory").value = article.category || "";
-      document.getElementById("articleContent").value = article.content || "";
-    }
 
     function insertMD(before, after) {
       const ta = document.getElementById("articleContent");
@@ -189,7 +201,7 @@
 
       try {
         if (editingId) {
-          // Save current version to history
+          // Update article
           const current = await db.get(`/articles/${editingId}`);
           if (current) {
             await db.push(`/articles/${editingId}/history`, {
@@ -201,7 +213,6 @@
             });
           }
 
-          // Update article
           await db.update(`/articles/${editingId}`, {
             title,
             category,
@@ -211,13 +222,9 @@
             editCount: (current?.editCount || 0) + 1,
           });
 
-          // Update user edit count
           const userData = await db.get(`/users/${user}`);
-          if (userData) {
-            await db.update(`/users/${user}`, { editsCount: (userData.editsCount || 0) + 1 });
-          }
+          if (userData) await db.update(`/users/${user}`, { editsCount: (userData.editsCount || 0) + 1 });
 
-          // Activity log
           await db.push("/activity", {
             type: "edit",
             articleId: editingId,
@@ -246,13 +253,9 @@
             editCount: 0,
           });
 
-          // Update user article count
           const userData = await db.get(`/users/${user}`);
-          if (userData) {
-            await db.update(`/users/${user}`, { articlesCreated: (userData.articlesCreated || 0) + 1 });
-          }
+          if (userData) await db.update(`/users/${user}`, { articlesCreated: (userData.articlesCreated || 0) + 1 });
 
-          // Activity log
           await db.push("/activity", {
             type: "create",
             articleId: id,
@@ -261,7 +264,6 @@
             timestamp: new Date().toISOString(),
           });
 
-          // Notify moderators
           await db.push("/notifications", {
             type: "new_article",
             message: `${user} created a new article: "${title}"`,
