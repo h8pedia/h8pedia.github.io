@@ -7,11 +7,50 @@
   <meta name="description" content="Create your h8pedia account to start contributing.">
   <link rel="stylesheet" href="css/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* --- TOS Checkbox Styling --- */
+    .tos-group {
+      margin-top: 18px;
+    }
+
+    .tos-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+      cursor: pointer;
+      color: #444;
+    }
+
+    .tos-label input[type="checkbox"] {
+      margin-top: 4px;
+      width: 16px;
+      height: 16px;
+      accent-color: #4f46e5;
+      cursor: pointer;
+    }
+
+    .tos-label a {
+      color: #4f46e5;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .tos-label a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
+
 <body>
   <div class="auth-wrapper">
     <div class="auth-card">
-      <a href="index.html" class="site-logo" style="display:block;text-align:center;margin-bottom:24px;font-size:28px;">h8<span>pedia</span></a>
+      <a href="index.html" class="site-logo" style="display:block;text-align:center;margin-bottom:24px;font-size:28px;">
+        h8<span>pedia</span>
+      </a>
+
       <h1>Create Account</h1>
       <p class="subtitle">Join h8pedia with your Hackley email</p>
 
@@ -19,21 +58,48 @@
 
       <!-- Signup Form -->
       <form id="signupForm" onsubmit="return handleSignup(event)">
+        
         <div class="form-group">
           <label class="form-label" for="username">Username</label>
-          <input type="text" id="username" class="form-input" placeholder="Choose a username" required minlength="3" autocomplete="username">
+          <input type="text" id="username" class="form-input"
+            placeholder="Choose a username"
+            required minlength="3" autocomplete="username">
           <div class="form-hint">At least 3 characters, lowercase</div>
         </div>
+
         <div class="form-group">
           <label class="form-label" for="email">Hackley Email</label>
-          <input type="email" id="email" class="form-input" placeholder="you@students.hackleyschool.org" required autocomplete="email">
+          <input type="email" id="email" class="form-input"
+            placeholder="you@students.hackleyschool.org"
+            required autocomplete="email">
           <div class="form-hint">Must be a @students.hackleyschool.org address</div>
         </div>
+
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input type="password" id="password" class="form-input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password">
+          <input type="password" id="password" class="form-input"
+            placeholder="At least 6 characters"
+            required minlength="6" autocomplete="new-password">
         </div>
-        <button type="submit" class="btn btn-primary" id="signupBtn" style="width:100%; justify-content:center;">
+
+        <!-- TOS Agreement -->
+        <div class="form-group tos-group">
+          <label class="tos-label">
+            <input type="checkbox" id="tosAgreement" required>
+            <span>
+              I agree to the 
+              <a href="https://docs.google.com/document/d/1ArJaDnXQJrSDf1OVNuyH4-dPo9oFZvVyqxQPGEOzMDE/edit?usp=sharing"
+                 target="_blank"
+                 rel="noopener noreferrer">
+                Terms of Service
+              </a>
+            </span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary"
+          id="signupBtn"
+          style="width:100%; justify-content:center;">
           Create Account
         </button>
       </form>
@@ -48,6 +114,7 @@
   <script src="js/ban-system.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
+
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       const banned = await BanSystem.enforceBan();
@@ -57,12 +124,22 @@
 
     async function handleSignup(e) {
       e.preventDefault();
+
       const btn = document.getElementById("signupBtn");
       const errEl = document.getElementById("signupError");
+      const tosChecked = document.getElementById("tosAgreement").checked;
 
       errEl.classList.add("hidden");
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+      if (!tosChecked) {
+        errEl.textContent = "You must agree to the Terms of Service.";
+        errEl.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+        return false;
+      }
 
       const username = document.getElementById("username").value;
       const email = document.getElementById("email").value;
@@ -71,7 +148,6 @@
       const result = await Auth.signup(username, email, password);
 
       if (result.ok) {
-        // Redirect immediately since no verification is needed
         location.href = "index.html";
       } else {
         errEl.textContent = result.error;
@@ -79,6 +155,7 @@
         btn.disabled = false;
         btn.textContent = "Create Account";
       }
+
       return false;
     }
   </script>
