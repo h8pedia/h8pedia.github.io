@@ -88,7 +88,7 @@ var Auth = (function() {
       email: email,
       password: hashedPw,
       role: "user",
-      verified: true, // User is automatically verified
+      verified: true,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
       lastIP: ip || "unknown",
@@ -100,8 +100,6 @@ var Auth = (function() {
 
     await window.db.set("/users/" + username, userData);
     await window.BanSystem.registerIdentity(username);
-
-    // Removed verification code generation logic
 
     localStorage.setItem(SESSION_KEY, username);
     localStorage.setItem(TOKEN_KEY, token);
@@ -127,8 +125,11 @@ var Auth = (function() {
       return { ok: false, error: "User not found." };
     }
 
-    if (userData.banned) {
-      await window.BanSystem.writeBanLocally(userData.banReason || "Banned");
+    // FIX: Check for both 'banned' boolean and 'status' string
+    var isBanned = (userData.banned === true) || (userData.status === "banned");
+    if (isBanned) {
+      var reason = userData.banReason || userData.reason || "Banned";
+      await window.BanSystem.writeBanLocally(reason);
       return { ok: false, error: "This account has been banned." };
     }
 
@@ -173,7 +174,6 @@ var Auth = (function() {
     signup: signup,
     login: login,
     logout: logout,
-    // verifyEmail removed from exports
     getUserData: getUserData,
     isModerator: isModerator,
     hashPassword: hashPassword
