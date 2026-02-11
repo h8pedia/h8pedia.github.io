@@ -126,35 +126,37 @@ function initNav() {
   var navAuth = document.getElementById("navAuth");
   if (!navAuth) return;
 
-if (window.Auth && window.Auth.isLoggedIn()) {
-  var user = window.Auth.getUser();
-  var initial = user.charAt(0).toUpperCase();
+  if (window.Auth && window.Auth.isLoggedIn()) {
+    var user = window.Auth.getUser();
+    var initial = user.charAt(0).toUpperCase();
 
-  navAuth.innerHTML = `
-    <div class="nav-auth">
-      <a href="profile.html?user=${encodeURIComponent(user)}" class="nav-user" aria-label="Your profile">
-        <span class="nav-avatar">${esc(initial)}</span>${esc(user)}
-      </a>
-      <a href="#" class="nav-link" onclick="Auth.logout(); return false;">Logout</a>
-    </div>
-  `;
+    navAuth.innerHTML = `
+      <div class="nav-auth">
+        <a href="profile.html?user=${encodeURIComponent(user)}" class="nav-user" aria-label="Your profile">
+          <span class="nav-avatar">${esc(initial)}</span>${esc(user)}
+        </a>
+        <a href="#" class="nav-link" onclick="Auth.logout(); return false;">Logout</a>
+      </div>
+    `;
 
-  window.Auth.isModerator().then(function(isMod) {
-    if (isMod) {
-      var modLink = document.createElement("a");
-      modLink.href = "moderator.html";
-      modLink.className = "nav-link";
-      modLink.textContent = "Mod Panel";
-      navAuth.prepend(modLink);
-    }
-  });
-}
+    window.Auth.isModerator().then(function(isMod) {
+      if (isMod) {
+        var modLink = document.createElement("a");
+        modLink.href = "moderator.html";
+        modLink.className = "nav-link";
+        modLink.textContent = "Mod Panel";
+        navAuth.prepend(modLink);
+      }
+    });
 
+  } else {
+    // Only show login/signup if not logged in
     navAuth.innerHTML =
       '<a href="login.html" class="nav-link">Log in</a>' +
       '<a href="signup.html" class="nav-link active">Sign up</a>';
   }
 }
+
 
 document.addEventListener("DOMContentLoaded", function() {
   var btn = document.getElementById("mobileMenuBtn");
