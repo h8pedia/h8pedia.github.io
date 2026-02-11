@@ -66,17 +66,8 @@ var Auth = (function() {
 
     var hashedPw = await hashPassword(password);
     var token = generateToken();
-    var ip = await window.BanSystem.getIPAddress();
     var fp = window.BanSystem.getBrowserFingerprint();
 
-    if (ip) {
-      var safeIp = ip.replace(/\./g, "_");
-      var ipBan = await window.db.get("/bans/ips/" + safeIp);
-      if (ipBan) {
-        await window.BanSystem.writeBanLocally(ipBan.reason || "Banned");
-        return { ok: false, error: "You are banned from h8pedia." };
-      }
-    }
     var fpBan = await window.db.get("/bans/fingerprints/" + fp);
     if (fpBan) {
       await window.BanSystem.writeBanLocally(fpBan.reason || "Banned");
