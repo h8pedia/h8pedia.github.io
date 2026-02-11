@@ -150,7 +150,6 @@ function initNav() {
     });
 
   } else {
-    // Only show login/signup if not logged in
     navAuth.innerHTML =
       '<a href="login.html" class="nav-link">Log in</a>' +
       '<a href="signup.html" class="nav-link active">Sign up</a>';
