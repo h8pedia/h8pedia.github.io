@@ -64,6 +64,7 @@
           <button class="tab" onclick="showTab('activity', this)">Activity Log</button>
           <button class="tab" onclick="showTab('notifications', this)">Notifications</button>
           <button class="tab" onclick="showTab('articles', this)">Articles</button>
+          <button class="tab" onclick="showTab('comments', this)">Comments</button>
         </div>
 
         <!-- Users Tab -->
@@ -121,6 +122,26 @@
             </table>
           </div>
         </div>
+
+        <!-- Comments Tab -->
+        <div id="tab-comments" class="tab-content hidden">
+          <div style="overflow-x:auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>Article</th>
+                  <th>Author</th>
+                  <th>Comment</th>
+                  <th>Posted</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="commentsTableBody">
+                <tr><td colspan="5" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -153,6 +174,7 @@
       loadActivityLog();
       loadNotifications();
       loadArticlesTable();
+      loadCommentsTable();
     });
 
     function showTab(name, el) {
@@ -288,6 +310,7 @@
           case "ban": desc = `<strong>${esc(a.user)}</strong> banned <strong>${esc(a.targetUser)}</strong>: ${esc(a.reason)}`; break;
           case "unban": desc = `<strong>${esc(a.user)}</strong> unbanned <strong>${esc(a.targetUser)}</strong>`; break;
           case "role_change": desc = `<strong>${esc(a.user)}</strong> changed <strong>${esc(a.targetUser)}</strong> role to ${esc(a.newRole)}`; break;
+          case "delete_comment": desc = `<strong>${esc(a.user)}</strong> deleted comment by <strong>${esc(a.commentAuthor)}</strong> on <a href="article.html?id=${encodeURIComponent(a.articleId)}">${esc(a.articleTitle || 'article')}</a>`; break;
           default: desc = `${esc(a.type)} by ${esc(a.user)}`;
         }
         return `
@@ -355,12 +378,75 @@
       `).join("");
     }
 
+    async function loadCommentsTable() {
+      const tbody = document.getElementById("commentsTableBody");
+      const articles = await db.get("/articles");
+      if (!articles) { tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No comments.</td></tr>'; return; }
+
+      // Collect all comments from all articles
+      const allComments = [];
+      for (const [articleId, article] of Object.entries(articles)) {
+        if (article.deleted) continue;
+        const comments = await db.get(`/articles/${articleId}/comments`);
+        if (comments) {
+          for (const [commentId, comment] of Object.entries(comments)) {
+            allComments.push({
+              articleId,
+              articleTitle: article.title,
+              commentId,
+              ...comment
+            });
+          }
+        }
+      }
+
+      if (allComments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No comments.</td></tr>';
+        return;
+      }
+
+      // Sort by most recent
+      allComments.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+      tbody.innerHTML = allComments.slice(0, 100).map(c => `
+        <tr>
+          <td><a href="article.html?id=${encodeURIComponent(c.articleId)}">${esc(c.articleTitle)}</a></td>
+          <td><a href="profile.html?user=${encodeURIComponent(c.author)}">${esc(c.author)}</a></td>
+          <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(c.text)}</td>
+          <td>${formatDateTime(c.createdAt)}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteCommentMod('${c.articleId}', '${c.commentId}', '${esc(c.author)}', '${esc(c.articleTitle)}')">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
     async function deleteArticleMod(id) {
       if (!confirm("Delete this article?")) return;
       await db.update(`/articles/${id}`, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: Auth.getUser() });
       showToast("Article deleted", "success");
       loadArticlesTable();
       loadModStats();
+    }
+
+    async function deleteCommentMod(articleId, commentId, commentAuthor, articleTitle) {
+      if (!confirm("Delete this comment?")) return;
+      
+      await db.delete(`/articles/${articleId}/comments/${commentId}`);
+      
+      // Log the deletion in activity
+      await db.push("/activity", {
+        type: "delete_comment",
+        articleId: articleId,
+        articleTitle: articleTitle,
+        commentAuthor: commentAuthor,
+        user: Auth.getUser(),
+        timestamp: new Date().toISOString(),
+      });
+      
+      showToast("Comment deleted", "success");
+      loadCommentsTable();
+      loadActivityLog();
     }
 
     function doSearch() {
