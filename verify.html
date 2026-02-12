@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Verify Account — h8pedia</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="auth-wrapper">
+  <div class="auth-card text-center">
+    <h1>Email Verification</h1>
+    <p class="subtitle">Verifying your account...</p>
+    <div id="verifyStatus" class="mt-4">
+      <span class="spinner"></span>
+    </div>
+  </div>
+</div>
+
+<script src="js/firebase-api.js"></script>
+<script src="js/auth.js"></script>
+
+<script>
+(async function() {
+  var params = new URLSearchParams(window.location.search);
+  var username = params.get("user");
+  var token = params.get("token");
+  var statusEl = document.getElementById("verifyStatus");
+
+  if (!username || !token) {
+    statusEl.innerHTML = '<div class="alert alert-danger">Invalid verification link.</div>';
+    return;
+  }
+
+  var user = await db.get("/users/" + username);
+
+  if (!user || user.verificationToken !== token) {
+    statusEl.innerHTML = '<div class="alert alert-danger">Invalid or expired token.</div>';
+    return;
+  }
+
+  var newSessionToken = Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+  await db.update("/users/" + username, {
+    verified: true,
+    verificationToken: null,
+    lastLogin: new Date().toISOString()
+  });
+
+  localStorage.setItem("h8pedia_username", username);
+  localStorage.setItem("h8pedia_token", newSessionToken);
+
+  statusEl.innerHTML =
+    '<div class="alert alert-success">Account verified! Redirecting...</div>';
+
+  setTimeout(function() {
+    window.location.href = "index.html";
+  }, 1500);
+})();
+</script>
+
+</body>
+</html>
