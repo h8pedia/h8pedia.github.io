@@ -61,7 +61,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      await BanSystem.enforceBan();
+      await BanSystem.init();
 
       selectedCat = getParam("cat");
       await loadCategories();
