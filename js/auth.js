@@ -171,3 +171,5 @@ var Auth = (function() {
     hashPassword
   };
 })();
+
+window.Auth = Auth;
