@@ -61,7 +61,7 @@
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      await BanSystem.enforceBan();
+      await BanSystem.init();
 
       const q = getParam("q");
       if (q) {
