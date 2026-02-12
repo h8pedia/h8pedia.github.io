@@ -57,7 +57,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      await BanSystem.enforceBan();
+      await BanSystem.init();
 
       articleId = getParam("id");
       if (!articleId) {
