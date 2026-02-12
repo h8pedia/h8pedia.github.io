@@ -62,7 +62,7 @@
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      await BanSystem.enforceBan();
+      await BanSystem.init();
 
       const targetUser = getParam("user") || Auth.getUser();
       if (!targetUser) {
