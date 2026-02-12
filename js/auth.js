@@ -147,6 +147,19 @@ var Auth = (function() {
     localStorage.removeItem(TOKEN_KEY);
     window.location.href = "index.html";
   }
+  
+  async function getUserData(username) {
+    username = username || getUser();
+    if (!username) return null;
+    return await window.db.get("/users/" + username);
+  }
+
+  async function isModerator() {
+    var username = getUser();
+    if (!username) return false;
+    var data = await window.db.get("/users/" + username);
+    return data && (data.role === "moderator" || data.role === "admin");
+  }
 
   return {
     isLoggedIn,
