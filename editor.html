@@ -116,7 +116,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      const banned = await BanSystem.enforceBan();
+      const banned = await BanSystem.init();
       if (banned) return;
 
       // Auth check
