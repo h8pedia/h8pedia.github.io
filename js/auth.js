@@ -147,7 +147,7 @@ var Auth = (function() {
     localStorage.removeItem(TOKEN_KEY);
     window.location.href = "index.html";
   }
-  
+
   async function getUserData(username) {
     username = username || getUser();
     if (!username) return null;
@@ -161,14 +161,17 @@ var Auth = (function() {
     return data && (data.role === "moderator" || data.role === "admin");
   }
 
+  // ← CRITICAL: Make sure this return statement includes ALL functions
   return {
-    isLoggedIn,
-    getUser,
-    getToken,
-    signup,
-    login,
-    logout,
-    hashPassword
+    isLoggedIn: isLoggedIn,
+    getUser: getUser,
+    getToken: getToken,
+    signup: signup,
+    login: login,
+    logout: logout,
+    getUserData: getUserData,
+    isModerator: isModerator,
+    hashPassword: hashPassword
   };
 })();
 
