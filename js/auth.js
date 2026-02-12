@@ -3,6 +3,7 @@
 // =========================
 // AUTH SYSTEM — Signup, Login, Session Management
 // Email verification enabled
+// Adapted to Ghost Lock Ban System
 // =========================
 var Auth = (function() {
   var SESSION_KEY = "h8pedia_username";
@@ -58,7 +59,6 @@ var Auth = (function() {
 
     var hashedPw = await hashPassword(password);
     var verificationToken = generateToken();
-    var fp = window.BanSystem.getBrowserFingerprint();
 
     var userData = {
       username: username,
@@ -67,9 +67,10 @@ var Auth = (function() {
       role: "user",
       verified: false,
       verificationToken: verificationToken,
+      banned: false,
+      banReason: null,
       createdAt: new Date().toISOString(),
       lastLogin: null,
-      fingerprint: fp,
       bio: "",
       articlesCreated: 0,
       editsCount: 0
@@ -110,6 +111,13 @@ var Auth = (function() {
     var userData = await window.db.get("/users/" + username);
     if (!userData)
       return { ok: false, error: "User not found." };
+
+    // CHECK BAN STATUS FIRST
+    if (userData.banned) {
+      var reason = userData.banReason || "Access Denied";
+      window.BanSystem.ban(username, reason);
+      return { ok: false, error: "This account has been banned." };
+    }
 
     var hashedPw = await hashPassword(password);
     if (userData.password !== hashedPw)
