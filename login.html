@@ -43,7 +43,7 @@
   <script src="js/app.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
-      const banned = await BanSystem.enforceBan();
+      const banned = await BanSystem.init();
       if (banned) return;
       if (Auth.isLoggedIn()) location.href = "index.html";
     });
