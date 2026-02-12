@@ -118,7 +118,7 @@
     // Home page logic
     document.addEventListener("DOMContentLoaded", async () => {
       initNav();
-      await BanSystem.enforceBan();
+      await BanSystem.init();
       loadRecentArticles();
       loadStats();
       loadCategorySidebar();
