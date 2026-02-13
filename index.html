@@ -174,25 +174,28 @@
       document.getElementById("statUsers").textContent = userArr.length;
       document.getElementById("statEdits").textContent = totalEdits;
     }
-
+    
     async function loadCategorySidebar() {
       const container = document.getElementById("categorySidebar");
       const articles = await db.get("/articles");
       if (!articles) return;
-
+    
       const cats = new Set();
-      Object.values(articles).forEach(a => { if (a.category) cats.add(a.category); });
+      
+      // Iterate through all articles
+      Object.values(articles).forEach(a => { 
+        // Only add the category if it exists AND the article is NOT deleted
+        if (a.category && !a.deleted) {
+          cats.add(a.category); 
+        }
+      });
+    
       const catArr = [...cats].sort();
       if (!catArr.length) return;
-
+    
       container.innerHTML = catArr.slice(0, 10).map(c =>
         `<a href="categories.html?cat=${encodeURIComponent(c)}" class="chip">${esc(c)}</a>`
       ).join("") + `<a href="categories.html" class="chip">View All</a>`;
-    }
-
-    function doSearch() {
-      const q = document.getElementById("headerSearch").value.trim();
-      if (q) location.href = `search.html?q=${encodeURIComponent(q)}`;
     }
     function doHeroSearch() {
       const q = document.getElementById("heroSearch").value.trim();
