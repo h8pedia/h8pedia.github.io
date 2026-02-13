@@ -208,7 +208,8 @@ var Auth = (function() {
     syncSession: syncSession,
     getUserData: getUserData,
     isModerator: isModerator,
-    hashPassword: hashPassword
+    hashPassword: hashPassword,
+    forceLogout: forceLogout
   };
 })();
 
