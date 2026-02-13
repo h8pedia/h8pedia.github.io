@@ -175,3 +175,8 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 });
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await Auth.syncSession();
+});
