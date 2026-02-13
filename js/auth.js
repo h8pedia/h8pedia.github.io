@@ -160,6 +160,42 @@ var Auth = (function() {
     var data = await window.db.get("/users/" + username);
     return data && (data.role === "moderator" || data.role === "admin");
   }
+  async function syncSession() {
+      var username = getUser(); // Check localStorage
+      if (!username) return; // Not logged in, nothing to sync
+  
+      try {
+        // 1. Check if user actually exists in DB
+        var userData = await window.db.get("/users/" + username);
+  
+        // 2. If user not found OR user is banned, destroy session
+        if (!userData) {
+          console.warn("SyncSession: User record missing. Logging out.");
+          forceLogout();
+          return;
+        }
+  
+        if (userData.banned) {
+          console.warn("SyncSession: User is banned. Logging out.");
+          // Optional: Show a visual alert using your toast system
+          // window.toast("Your account has been banned.", "error");
+          forceLogout();
+          return;
+        }
+  
+      } catch (err) {
+        console.error("SyncSession Error:", err);
+        // If DB check fails, we usually keep them logged in to avoid locking 
+        // everyone out during a network glitch, unless you prefer strict mode.
+      }
+    }
+  
+    // Helper to fully wipe the session
+    function forceLogout() {
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = "index.html"; // Force redirect to home
+    }
 
   // ← CRITICAL: Make sure this return statement includes ALL functions
   return {
@@ -169,6 +205,7 @@ var Auth = (function() {
     signup: signup,
     login: login,
     logout: logout,
+    syncSession: syncSession,
     getUserData: getUserData,
     isModerator: isModerator,
     hashPassword: hashPassword
