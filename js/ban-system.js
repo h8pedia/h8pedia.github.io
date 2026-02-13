@@ -84,7 +84,7 @@ var BanSystem = (function() {
 
   // --- API ---
   return {
-    ban: function(user, reason) {
+    banUser: function(user, reason) {
       if(window.db) window.db.update("/users/" + user, { banned: true, banReason: reason });
       _lock(reason || REASON);
     },
