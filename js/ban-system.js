@@ -82,17 +82,27 @@ var BanSystem = (function() {
     document.body.innerHTML = '<div style="display:flex;height:100vh;background:#000;color:red;align-items:center;justify-content:center;font-family:sans-serif;"><h1>BANNED: ' + (msg||REASON) + '</h1></div>';
   }
 
-  // --- API ---
   return {
-    banUser: function(user, reason) {
-      if(window.db) window.db.update("/users/" + user, { banned: true, banReason: reason });
-      _lock(reason || REASON);
+    banUser: async function(user, reason) {
+      if(window.db) {
+        await window.db.update("/users/" + user, { banned: true, banReason: reason });
+        // Add additional ban tracking
+        await window.db.set("/bans/users/" + user, {
+          reason: reason,
+          bannedAt: new Date().toISOString(),
+          bannedBy: window.Auth?.getUser?.()
+        });
+      }
     },
-    init: function() {
-      _check().then(function(r) {
-        if(r) _kill(r);
-        else _syncServer();
-      });
+    
+    init: async function() {
+      var r = await _check();
+      if(r) {
+        _kill(r);
+        return true;
+      }
+      await _syncServer();
+      return false;
     }
   };
 })();
